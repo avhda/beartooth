@@ -15,9 +15,11 @@
 
 #define PROTOCOL_IPV4		0x0800
 #define PROTOCOL_ARP		0x0806
+#define PROTOCOL_TCP		0x0006
 #define PROTOCOL_UDP		0x0011
 
 #define PORT_DNS			53
+#define PORT_TLS			443
 
 #define HARDWARE_TYPE_ETHERNET 1
 
@@ -74,11 +76,21 @@ PACK(struct IpLayer
 	uint32_t	destaddr;      // Source address
 });
 
+#define TCP_FLAGS_PSH_ACK	0x18
+
 PACK(struct TcpLayer
 {
 	IpLayer		ip_layer;
 	uint16_t	src_port;
 	uint16_t	dest_port;
+	uint32_t	sequence_number;
+	uint32_t	ack_number;
+	uint8_t		header_len;
+	uint8_t		flags;
+	uint16_t	window;
+	uint16_t	checksum;
+	uint16_t	urgent_pointer;
+	uint8_t		options[12];
 });
 
 PACK(struct UdpLayer
@@ -120,6 +132,46 @@ PACK(struct DnsLayer
 	DnsAnswer   an;
 });
 
+PACK(struct TlsServerNameExtension
+{
+	uint16_t	type;
+	uint16_t	length;
+	uint16_t	server_name_list_len;
+	uint8_t		server_name_type;
+	uint16_t	server_name_len;
+	char* server_name[256];
+});
+
+#define TLS_CONTENT_TYPE_HANDSHAKE 22
+
+PACK(struct TlsHeader
+{
+	TcpLayer	tcp_layer;
+	uint8_t		content_type;
+	uint16_t	version;
+	uint16_t	length;
+});
+
+#define TLS_HANDSHAKE_TYPE_HELLO_CLIENT 1
+
+PACK(struct TlsHandshakePacket
+{
+	TlsHeader	tls_header;				// Header
+	uint8_t		type;					// Handshake type i.e. Hello Client
+	uint8_t		length[3];				// 3 byte length value
+	uint16_t	version;				// TLS protocol version
+	uint8_t		random[32];				// 32 byte random key field
+	uint8_t		session_id_len;			// Length of the session ID (usually 32 bytes)
+	uint8_t		session_id[32];			// Session ID
+	uint16_t	cipher_suites_len;		// Length of the section with encryption algos
+	uint8_t		cipher_suites[32];		// Most common case: 16 suites (32 bytes)
+	uint8_t		compression_method_len;	// Number of compression methods
+	uint8_t		compression_method;		// Most common case: no compression (null)
+	uint16_t	extensions_len;			// Length of the extensions segment
+	uint32_t	extension_reserved;		// Reserved extension
+	TlsServerNameExtension extension_server_name;
+});
+
 void craft_arp_request_packet(
 	ArpPacket* packet,
 	macaddr source_mac,
@@ -144,3 +196,4 @@ void craft_arp_reply_packet(
 );
 
 std::string extract_dns_query_qname(DnsLayer* packet);
+std::string extract_tls_connection_server_name(TlsHandshakePacket* packet);

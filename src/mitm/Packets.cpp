@@ -79,3 +79,11 @@ std::string extract_dns_query_qname(DnsLayer* packet)
 
 	return result;
 }
+
+std::string extract_tls_connection_server_name(TlsHandshakePacket* packet)
+{
+	return std::string(
+		(const char*)packet->extension_server_name.server_name,
+		(size_t)packet->extension_server_name.server_name_len
+	);
+}
