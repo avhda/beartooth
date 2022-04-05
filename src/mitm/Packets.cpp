@@ -52,3 +52,30 @@ void craft_arp_reply_packet(ArpPacket* packet, macaddr source_mac, macaddr dest_
 
 	craft_arp_reply_packet(packet, source_mac, dest_mac, src_ip, dst_ip);
 }
+
+std::string extract_dns_query_qname(DnsLayer* packet)
+{
+	std::string result;
+
+	char* data = packet->qd.qname;
+	int section_size = (int)*data;
+	++data;
+	
+	while (section_size != 0)
+	{
+		// Read the specified number of bytes as characters before the dot
+		for (int i = 0; i < section_size; ++i, ++data)
+			result += *data;
+
+		section_size = (int)*data;
+
+		// Add a dot at the end if there is more sections to read
+		if (section_size != 0)
+		{
+			result += '.';
+			++data;
+		}
+	}
+
+	return result;
+}

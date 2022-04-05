@@ -233,7 +233,7 @@ void network_scanner::scan_network(macaddr source_mac, const std::string& source
 		if (!result)
 			break;
 
-		if (intercepted_packet_count > (MAX_ARP_PACKETS_TO_WAIT * (range_end - range_start)))
+		if (intercepted_packet_count > ((int)MAX_ARP_PACKETS_TO_WAIT * (range_end - range_start)))
 		{
 			if (retry_count > MAX_ARP_REQUEST_RETRY_COUNT)
 				break;

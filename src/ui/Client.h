@@ -23,6 +23,7 @@ private:
 private:
 	void start_arp_spoofing_loop();
 	void stop_attack_and_restore_arp_tables();
+	void start_traffic_interception_loop();
 
 private:
 	AdapterList m_adapter_list;
