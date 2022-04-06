@@ -53,7 +53,44 @@ void craft_arp_reply_packet(ArpPacket* packet, macaddr source_mac, macaddr dest_
 	craft_arp_reply_packet(packet, source_mac, dest_mac, src_ip, dst_ip);
 }
 
-std::string extract_dns_query_qname(DnsLayer* packet)
+EthHeader* get_eth_header(uint8_t* packet)
+{
+	return reinterpret_cast<EthHeader*>(packet);
+}
+
+IpHeader* get_ip_header(uint8_t* packet)
+{
+	return reinterpret_cast<IpHeader*>(packet + sizeof(EthHeader));
+}
+
+TcpHeader* get_tcp_header(uint8_t* packet)
+{
+	return reinterpret_cast<TcpHeader*>(packet + sizeof(EthHeader) + sizeof(IpHeader));
+}
+
+UdpHeader* get_udp_header(uint8_t* packet)
+{
+	return reinterpret_cast<UdpHeader*>(packet + sizeof(EthHeader) + sizeof(IpHeader));
+}
+
+DnsHeader* get_dns_header(uint8_t* packet)
+{
+	return reinterpret_cast<DnsHeader*>(packet + sizeof(EthHeader) + sizeof(IpHeader) + sizeof(UdpHeader));
+}
+
+TlsHeader* get_tls_header(uint8_t* packet)
+{
+	TcpHeader* tcp_header = get_tcp_header(packet);
+	int header_len = ((int)(tcp_header->header_len >> 4)) * 4;
+	return reinterpret_cast<TlsHeader*>(packet + sizeof(EthHeader) + sizeof(IpHeader) + header_len);
+}
+
+TlsHandshake* get_tls_handshake(TlsHeader* tls_header)
+{
+	return reinterpret_cast<TlsHandshake*>((uint8_t*)tls_header + sizeof(TlsHeader));
+}
+
+std::string extract_dns_query_qname(DnsHeader* packet)
 {
 	std::string result;
 
@@ -80,7 +117,7 @@ std::string extract_dns_query_qname(DnsLayer* packet)
 	return result;
 }
 
-std::string extract_tls_connection_server_name(TlsHandshakePacket* packet)
+std::string extract_tls_connection_server_name(TlsHandshake* packet)
 {
 	return std::string(
 		(const char*)packet->extension_server_name.server_name,

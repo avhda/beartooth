@@ -410,11 +410,11 @@ void ClientApplication::render_intercepted_traffic_window()
 			if (!packet_ref)
 				continue;
 
-			TlsHandshakePacket* tls_packet = reinterpret_cast<TlsHandshakePacket*>(packet_ref->buffer);
+			TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(packet_ref->buffer));
 
 			ImGui::Text("TLS Connection: ");
 			ImGui::SameLine();
-			ImGui::Text(extract_tls_connection_server_name(tls_packet).c_str());
+			ImGui::Text(extract_tls_connection_server_name(tls_handshake).c_str());
 		}
 	}
 
@@ -505,34 +505,34 @@ void ClientApplication::start_traffic_interception_loop()
 
 			net_utils::recv_packet(&header, packet->buffer, MAX_PACKET_SIZE);
 
-			EthLayer* eth_layer = reinterpret_cast<EthLayer*>(packet->buffer);
+			EthHeader* eth_header = get_eth_header(packet->buffer);
 
 			// Check if the packet was originated from the target host
-			bool target_is_sender = memcmp(eth_layer->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
+			bool target_is_sender = memcmp(eth_header->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
 
 			if (!target_is_sender)
 				continue;
 
 			// Testing TLS filter
-			if (eth_layer->protocol != htons(PROTOCOL_IPV4))
+			if (eth_header->protocol != htons(PROTOCOL_IPV4))
 				continue;
 
-			IpLayer* ip_layer = reinterpret_cast<IpLayer*>(packet->buffer);
-			if (ip_layer->protocol != PROTOCOL_TCP)
+			IpHeader* ip_header = get_ip_header(packet->buffer);
+			if (ip_header->protocol != PROTOCOL_TCP)
 				continue;
 
-			TcpLayer* tcp_layer = reinterpret_cast<TcpLayer*>(packet->buffer);
-			if (tcp_layer->dest_port != htons(PORT_TLS))
+			TcpHeader* tcp_header = get_tcp_header(packet->buffer);
+			if (tcp_header->dest_port != htons(PORT_TLS))
 				continue;
 
-			if (tcp_layer->flags != TCP_FLAGS_PSH_ACK)
+			if (tcp_header->flags != TCP_FLAGS_PSH_ACK)
 				continue;
 
-			TlsHeader* tls_header = reinterpret_cast<TlsHeader*>(packet->buffer);
+			TlsHeader* tls_header = get_tls_header(packet->buffer);
 			if (tls_header->content_type != TLS_CONTENT_TYPE_HANDSHAKE)
 				continue;
 
-			TlsHandshakePacket* tls_handshake = reinterpret_cast<TlsHandshakePacket*>(packet->buffer);
+			TlsHandshake* tls_handshake = get_tls_handshake(tls_header);
 			if (tls_handshake->type != TLS_HANDSHAKE_TYPE_HELLO_CLIENT)
 				continue;
 

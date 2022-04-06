@@ -34,7 +34,7 @@ struct PacketHeader
 	uint32_t	len;			// length of the packet
 };
 
-struct EthLayer
+struct EthHeader
 {
 	macaddr		dest;
 	macaddr		src;
@@ -48,7 +48,7 @@ struct GenericPacket
 
 PACK(struct ArpPacket
 {
-	EthLayer	eth_layer;
+	EthHeader	eth_layer;
 	uint16_t	hardware_type;					// Ethernet
 	uint16_t	protocol;						// IPv4
 	uint8_t		hrd_len;						// Hardware Length
@@ -60,9 +60,8 @@ PACK(struct ArpPacket
 	ipaddr		arp_tpa;						// Target IPv4 address
 });
 
-PACK(struct IpLayer
+PACK(struct IpHeader
 {
-	EthLayer	eth_layer;	   // Ethernet frame
 	uint8_t		ip_verlen;     // 4-bit IPv4 version
 							   // 4-bit header length (in 32-bit words)
 	uint8_t		tos;           // IP type of service
@@ -78,9 +77,8 @@ PACK(struct IpLayer
 
 #define TCP_FLAGS_PSH_ACK	0x18
 
-PACK(struct TcpLayer
+PACK(struct TcpHeader
 {
-	IpLayer		ip_layer;
 	uint16_t	src_port;
 	uint16_t	dest_port;
 	uint32_t	sequence_number;
@@ -93,9 +91,8 @@ PACK(struct TcpLayer
 	uint8_t		options[12];
 });
 
-PACK(struct UdpLayer
+PACK(struct UdpHeader
 {
-	IpLayer		ip_layer;
 	uint16_t	src_port;
 	uint16_t	dest_port;
 	uint16_t	length;
@@ -119,9 +116,8 @@ PACK(struct DnsAnswer
 	void* data;
 });
 
-PACK(struct DnsLayer
+PACK(struct DnsHeader
 {
-	UdpLayer	udp_layer;
 	uint16_t    id;
 	uint16_t    flags;
 	uint16_t    qdcount;
@@ -146,7 +142,6 @@ PACK(struct TlsServerNameExtension
 
 PACK(struct TlsHeader
 {
-	TcpLayer	tcp_layer;
 	uint8_t		content_type;
 	uint16_t	version;
 	uint16_t	length;
@@ -154,9 +149,8 @@ PACK(struct TlsHeader
 
 #define TLS_HANDSHAKE_TYPE_HELLO_CLIENT 1
 
-PACK(struct TlsHandshakePacket
+PACK(struct TlsHandshake
 {
-	TlsHeader	tls_header;				// Header
 	uint8_t		type;					// Handshake type i.e. Hello Client
 	uint8_t		length[3];				// 3 byte length value
 	uint16_t	version;				// TLS protocol version
@@ -195,5 +189,19 @@ void craft_arp_reply_packet(
 	const char* dest_ip
 );
 
-std::string extract_dns_query_qname(DnsLayer* packet);
-std::string extract_tls_connection_server_name(TlsHandshakePacket* packet);
+EthHeader*	get_eth_header(uint8_t* packet);
+IpHeader*	get_ip_header(uint8_t* packet);
+TcpHeader*	get_tcp_header(uint8_t* packet);
+UdpHeader*	get_udp_header(uint8_t* packet);
+DnsHeader*	get_dns_header(uint8_t* packet);
+
+// Since TCP packet can have an optional 12 byte "options" field,
+// the offset of the TLS packet header can vary depending on the TCP packet's size.
+TlsHeader* get_tls_header(uint8_t* packet);
+
+TlsHandshake* get_tls_handshake(TlsHeader* tls_header);
+
+std::string extract_dns_query_qname(DnsHeader* packet);
+std::string extract_tls_connection_server_name(TlsHandshake* packet);
+
+

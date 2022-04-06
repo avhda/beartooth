@@ -162,8 +162,8 @@ bool net_utils::send_arp_request(macaddr source_mac, macaddr target_mac_buffer, 
 			intercepted_packet_count = 0;
 		}
 
-		EthLayer eth_layer;
-		memcpy(&eth_layer, &reply, sizeof(EthLayer));
+		EthHeader eth_layer;
+		memcpy(&eth_layer, &reply, sizeof(EthHeader));
 
 		// Check if the packet is an ARP packet
 		if (eth_layer.protocol != htons(PROTOCOL_ARP))
@@ -242,8 +242,8 @@ void network_scanner::scan_network(macaddr source_mac, const std::string& source
 			intercepted_packet_count = 0;
 		}
 
-		EthLayer eth_layer;
-		memcpy(&eth_layer, &reply, sizeof(EthLayer));
+		EthHeader eth_layer;
+		memcpy(&eth_layer, &reply, sizeof(EthHeader));
 
 		// Check if the packet is an ARP packet
 		if (eth_layer.protocol != htons(PROTOCOL_ARP))
