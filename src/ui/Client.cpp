@@ -403,18 +403,41 @@ void ClientApplication::render_intercepted_traffic_window()
 	}
 	else
 	{
-		// Create a clone to avoid issues with multithreading
 		for (auto& [header, packet_ref] : s_intercepted_packets)
 		{
 			// Skip over faulty packets
 			if (!packet_ref)
 				continue;
 
-			TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(packet_ref->buffer));
+			EthHeader* eth_header = get_eth_header(packet_ref->buffer);
 
-			ImGui::Text("TLS Connection: ");
-			ImGui::SameLine();
-			ImGui::Text(extract_tls_connection_server_name(tls_handshake).c_str());
+			// Check if the packet was originated from the target host
+			bool target_is_sender = memcmp(eth_header->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
+
+			if (!target_is_sender)
+				continue;
+
+			// TLS Filter
+			if (has_client_tls_layer(packet_ref->buffer))
+			{
+				TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(packet_ref->buffer));
+
+				ImGui::Text("TLS Connection: ");
+				ImGui::SameLine();
+				ImGui::Text(extract_tls_connection_server_name(tls_handshake).c_str());
+			}
+
+			// DNS Filter
+			if (has_client_dns_layer(packet_ref->buffer))
+			{
+				DnsHeader* dns_header = get_dns_header(packet_ref->buffer);
+				if (ntohs(dns_header->qdcount) == 1)
+				{
+					ImGui::Text("DNS Query: ");
+					ImGui::SameLine();
+					ImGui::Text(extract_dns_query_qname(dns_header).c_str());
+				}
+			}
 		}
 	}
 
@@ -510,30 +533,12 @@ void ClientApplication::start_traffic_interception_loop()
 			// Check if the packet was originated from the target host
 			bool target_is_sender = memcmp(eth_header->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
 
-			if (!target_is_sender)
-				continue;
+			// Check if the packet was originated from the gateway host
+			bool gateway_is_sender = memcmp(eth_header->src, m_mitm_data.gateway_mac_address, sizeof(macaddr)) == 0;
 
-			// Testing TLS filter
-			if (eth_header->protocol != htons(PROTOCOL_IPV4))
-				continue;
-
-			IpHeader* ip_header = get_ip_header(packet->buffer);
-			if (ip_header->protocol != PROTOCOL_TCP)
-				continue;
-
-			TcpHeader* tcp_header = get_tcp_header(packet->buffer);
-			if (tcp_header->dest_port != htons(PORT_TLS))
-				continue;
-
-			if (tcp_header->flags != TCP_FLAGS_PSH_ACK)
-				continue;
-
-			TlsHeader* tls_header = get_tls_header(packet->buffer);
-			if (tls_header->content_type != TLS_CONTENT_TYPE_HANDSHAKE)
-				continue;
-
-			TlsHandshake* tls_handshake = get_tls_handshake(tls_header);
-			if (tls_handshake->type != TLS_HANDSHAKE_TYPE_HELLO_CLIENT)
+			// If packet is not from the gateway to the target
+			// or from target to gateway, skip the packet.
+			if (!target_is_sender && !gateway_is_sender)
 				continue;
 
 			// Lock the mutex

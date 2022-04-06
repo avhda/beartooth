@@ -201,7 +201,8 @@ TlsHeader* get_tls_header(uint8_t* packet);
 
 TlsHandshake* get_tls_handshake(TlsHeader* tls_header);
 
-std::string extract_dns_query_qname(DnsHeader* packet);
-std::string extract_tls_connection_server_name(TlsHandshake* packet);
+bool has_client_dns_layer(uint8_t* packet);
+bool has_client_tls_layer(uint8_t* packet);
 
-
+std::string extract_dns_query_qname(DnsHeader* dns_header);
+std::string extract_tls_connection_server_name(TlsHandshake* tls_handshake);

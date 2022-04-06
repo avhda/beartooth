@@ -90,11 +90,60 @@ TlsHandshake* get_tls_handshake(TlsHeader* tls_header)
 	return reinterpret_cast<TlsHandshake*>((uint8_t*)tls_header + sizeof(TlsHeader));
 }
 
-std::string extract_dns_query_qname(DnsHeader* packet)
+bool has_client_dns_layer(uint8_t* packet)
+{
+	EthHeader* eth_header = get_eth_header(packet);
+
+	// Check for IPv4 protocol
+	if (ntohs(eth_header->protocol) != PROTOCOL_IPV4)
+		return false;
+
+	IpHeader* ip_header = get_ip_header(packet);
+	if (ip_header->protocol != PROTOCOL_UDP)
+		return false;
+
+	UdpHeader* udp_header = get_udp_header(packet);
+	if (ntohs(udp_header->dest_port) != PORT_DNS)
+		return false;
+
+	return true;
+}
+
+bool has_client_tls_layer(uint8_t* packet)
+{
+	EthHeader* eth_header = get_eth_header(packet);
+
+	// Testing TLS filter
+	if (ntohs(eth_header->protocol) != PROTOCOL_IPV4)
+		return false;
+
+	IpHeader* ip_header = get_ip_header(packet);
+	if (ip_header->protocol != PROTOCOL_TCP)
+		return false;
+
+	TcpHeader* tcp_header = get_tcp_header(packet);
+	if (ntohs(tcp_header->dest_port) != PORT_TLS)
+		return false;
+
+	if (tcp_header->flags != TCP_FLAGS_PSH_ACK)
+		return false;
+
+	TlsHeader* tls_header = get_tls_header(packet);
+	if (tls_header->content_type != TLS_CONTENT_TYPE_HANDSHAKE)
+		return false;
+
+	TlsHandshake* tls_handshake = get_tls_handshake(tls_header);
+	if (tls_handshake->type != TLS_HANDSHAKE_TYPE_HELLO_CLIENT)
+		return false;
+
+	return true;
+}
+
+std::string extract_dns_query_qname(DnsHeader* dns_header)
 {
 	std::string result;
 
-	char* data = packet->qd.qname;
+	char* data = dns_header->qd.qname;
 	int section_size = (int)*data;
 	++data;
 	
@@ -117,10 +166,10 @@ std::string extract_dns_query_qname(DnsHeader* packet)
 	return result;
 }
 
-std::string extract_tls_connection_server_name(TlsHandshake* packet)
+std::string extract_tls_connection_server_name(TlsHandshake* tls_handshake)
 {
 	return std::string(
-		(const char*)packet->extension_server_name.server_name,
-		(size_t)packet->extension_server_name.server_name_len
+		(const char*)tls_handshake->extension_server_name.server_name,
+		(size_t)tls_handshake->extension_server_name.server_name_len
 	);
 }
