@@ -62,7 +62,7 @@ int main(int, char**)
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
     // Load Fonts
-    io.FontDefault = io.Fonts->AddFontFromFileTTF("fonts/opensans/OpenSans-Regular.ttf", 18.0f);
+    io.FontDefault = io.Fonts->AddFontFromFileTTF("config/fonts/opensans/OpenSans-Regular.ttf", 18.0f);
 
     // Create the client application
     auto client = std::make_unique<ClientApplication>();

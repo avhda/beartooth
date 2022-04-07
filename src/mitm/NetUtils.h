@@ -1,6 +1,7 @@
 #pragma once
 #include "Adapter.h"
 #include "Packets.h"
+#include "MacVendorDecoder.h"
 #include <map>
 
 class net_utils
@@ -23,12 +24,13 @@ class network_scanner
 {
 public:
 	// ip_address_prefix example: 192.168.4.
-	static void scan_network(macaddr source_mac, const std::string& source_ip, const std::string& ip_address_prefix, int range_start = 1, int range_end = 255);
+	static void scan_network(macaddr source_mac, const std::string& source_ip, const std::string& ip_address_prefix, MacVendorDecoder* vendor_decoder, int range_start = 1, int range_end = 255);
 
 	struct netscan_node
 	{
 		bool is_online = false;
 		macaddr physical_address = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+		std::string vendor;
 	};
 
 	// ipv4 -> { is_online, mac_address }

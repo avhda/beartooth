@@ -90,35 +90,48 @@ TlsHandshake* get_tls_handshake(TlsHeader* tls_header)
 	return reinterpret_cast<TlsHandshake*>((uint8_t*)tls_header + sizeof(TlsHeader));
 }
 
-bool has_client_dns_layer(uint8_t* packet)
+bool has_arp_layer(uint8_t* packet)
 {
 	EthHeader* eth_header = get_eth_header(packet);
+	return (ntohs(eth_header->protocol) == PROTOCOL_ARP);
+}
 
-	// Check for IPv4 protocol
-	if (ntohs(eth_header->protocol) != PROTOCOL_IPV4)
+bool has_ip_layer(uint8_t* packet)
+{
+	EthHeader* eth_header = get_eth_header(packet);
+	return (ntohs(eth_header->protocol) == PROTOCOL_IPV4);
+}
+
+bool has_tcp_layer(uint8_t* packet)
+{
+	if (!has_ip_layer(packet))
 		return false;
 
 	IpHeader* ip_header = get_ip_header(packet);
-	if (ip_header->protocol != PROTOCOL_UDP)
+	return ip_header->protocol == PROTOCOL_TCP;
+}
+
+bool has_udp_layer(uint8_t* packet)
+{
+	if (!has_ip_layer(packet))
+		return false;
+
+	IpHeader* ip_header = get_ip_header(packet);
+	return ip_header->protocol == PROTOCOL_UDP;
+}
+
+bool has_client_dns_layer(uint8_t* packet)
+{
+	if (!has_udp_layer(packet))
 		return false;
 
 	UdpHeader* udp_header = get_udp_header(packet);
-	if (ntohs(udp_header->dest_port) != PORT_DNS)
-		return false;
-
-	return true;
+	return (ntohs(udp_header->dest_port) == PORT_DNS);
 }
 
 bool has_client_tls_layer(uint8_t* packet)
 {
-	EthHeader* eth_header = get_eth_header(packet);
-
-	// Testing TLS filter
-	if (ntohs(eth_header->protocol) != PROTOCOL_IPV4)
-		return false;
-
-	IpHeader* ip_header = get_ip_header(packet);
-	if (ip_header->protocol != PROTOCOL_TCP)
+	if (!has_tcp_layer(packet))
 		return false;
 
 	TcpHeader* tcp_header = get_tcp_header(packet);

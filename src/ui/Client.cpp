@@ -12,6 +12,7 @@ typedef std::pair<PacketHeader, GenericPacketRef> PacketNode;
 
 static std::vector<PacketNode> s_intercepted_packets;
 static std::mutex s_packet_interception_mutex;
+static std::mutex s_filter_options_mutex;
 
 void ClientApplication::init()
 {
@@ -19,6 +20,8 @@ void ClientApplication::init()
 	s_intercepted_packets.clear();
 
 	m_adapter_list.find_adapters();
+
+	m_vendor_decoder.load_vendor_list();
 }
 
 void ClientApplication::render()
@@ -59,6 +62,9 @@ void ClientApplication::render()
 
 	// Render the intercepted traffic window
 	render_intercepted_traffic_window();
+
+	// Render filtering options
+	render_packet_filters_window();
 }
 
 void ClientApplication::set_dark_theme_colors()
@@ -320,7 +326,11 @@ void ClientApplication::render_gateway_selection_window()
 
 void ClientApplication::render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer)
 {
-	ImGui::SetNextWindowSize(ImVec2(300, 500));
+	const float IPV4_CURSOR_POS_X		= 8.0f;
+	const float MAC_CURSOR_POS_X		= 190.0f;
+	const float VENDOR_CURSOR_POS_X		= 400.0f;
+
+	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 500), ImVec2(700, 500));
 	if (ImGui::BeginPopupModal(popup_target_id, &m_is_host_selection_window_opened, ImGuiWindowFlags_AlwaysAutoResize))
 	{
 		ImGui::Text("Hosts Found: %zi", network_scanner::s_network_scan_map.size());
@@ -336,10 +346,10 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 				std::thread scanning_thread([this]() {
 					auto local_ip = m_mitm_data.local_ip;
 					auto ip_prefix = local_ip.substr(0, local_ip.rfind(".") + 1);
-					network_scanner::scan_network(m_mitm_data.local_mac_address, local_ip, ip_prefix);
+					network_scanner::scan_network(m_mitm_data.local_mac_address, local_ip, ip_prefix, &m_vendor_decoder);
 
 					m_scanning_network = false;
-					});
+				});
 				scanning_thread.detach();
 			}
 		}
@@ -347,6 +357,19 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 		{
 			ImGui::Text("Scanning...");
 		}
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::SetCursorPosX(IPV4_CURSOR_POS_X);
+		ImGui::Text("IPv4");
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(MAC_CURSOR_POS_X);
+		ImGui::Text("MAC");
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(VENDOR_CURSOR_POS_X);
+		ImGui::Text("Vendor");
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -365,14 +388,11 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 			}
 
 			ImGui::SameLine();
-			ImGui::SetCursorPosX(8);
-
+			ImGui::SetCursorPosX(IPV4_CURSOR_POS_X);
 			ImGui::Text("%s", ip.c_str());
+
 			ImGui::SameLine();
-
-			auto indent = ImGui::GetWindowWidth() - 132;
-			ImGui::SetCursorPosX(indent);
-
+			ImGui::SetCursorPosX(MAC_CURSOR_POS_X);
 			ImGui::Text("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
 				node.physical_address[0],
 				node.physical_address[1],
@@ -381,6 +401,10 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 				node.physical_address[4],
 				node.physical_address[5]
 			);
+
+			ImGui::SameLine();
+			ImGui::SetCursorPosX(VENDOR_CURSOR_POS_X);
+			ImGui::Text("%s", node.vendor.c_str());
 
 			ImGui::Spacing();
 		}
@@ -403,8 +427,10 @@ void ClientApplication::render_intercepted_traffic_window()
 	}
 	else
 	{
-		for (auto& [header, packet_ref] : s_intercepted_packets)
+		for (size_t i = 0; i < s_intercepted_packets.size(); ++i)
 		{
+			auto& [header, packet_ref] = s_intercepted_packets.at(i);
+
 			// Skip over faulty packets
 			if (!packet_ref)
 				continue;
@@ -417,30 +443,33 @@ void ClientApplication::render_intercepted_traffic_window()
 			if (!target_is_sender)
 				continue;
 
-			// TLS Filter
-			if (has_client_tls_layer(packet_ref->buffer))
-			{
-				TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(packet_ref->buffer));
-
-				ImGui::Text("TLS Connection: ");
-				ImGui::SameLine();
-				ImGui::Text(extract_tls_connection_server_name(tls_handshake).c_str());
-			}
-
-			// DNS Filter
-			if (has_client_dns_layer(packet_ref->buffer))
-			{
-				DnsHeader* dns_header = get_dns_header(packet_ref->buffer);
-				if (ntohs(dns_header->qdcount) == 1)
-				{
-					ImGui::Text("DNS Query: ");
-					ImGui::SameLine();
-					ImGui::Text(extract_dns_query_qname(dns_header).c_str());
-				}
-			}
+			MainPacketRenderer::render_packet(packet_ref->buffer, &m_filter_options);
 		}
 	}
 
+	ImGui::End();
+}
+
+void ClientApplication::render_packet_filters_window()
+{
+	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 100), ImVec2(1200, 120));
+	ImGui::Begin("Packet Filters");
+
+	ImGui::SetCursorPos(ImVec2(40.0f, ImGui::GetWindowHeight() / 2.0f));
+	ImGui::Checkbox("DNS", &m_filter_options.dns_filter);
+	
+	ImGui::SameLine(); ImGui::SetCursorPosX(120.0f);
+	ImGui::Checkbox("TLS", &m_filter_options.tls_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(200.0f);
+	ImGui::Checkbox("TCP", &m_filter_options.tcp_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(280.0f);
+	ImGui::Checkbox("UDP", &m_filter_options.udp_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(360.0f);
+	ImGui::Checkbox("ARP", &m_filter_options.arp_filter);
+	
 	ImGui::End();
 }
 
@@ -533,12 +562,16 @@ void ClientApplication::start_traffic_interception_loop()
 			// Check if the packet was originated from the target host
 			bool target_is_sender = memcmp(eth_header->src, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
 
-			// Check if the packet was originated from the gateway host
-			bool gateway_is_sender = memcmp(eth_header->src, m_mitm_data.gateway_mac_address, sizeof(macaddr)) == 0;
+			// Check if the target host is the destination of the packet
+			bool target_is_destination = memcmp(eth_header->dest, m_mitm_data.target_mac_address, sizeof(macaddr)) == 0;
 
 			// If packet is not from the gateway to the target
 			// or from target to gateway, skip the packet.
-			if (!target_is_sender && !gateway_is_sender)
+			if (!target_is_sender && !target_is_destination)
+				continue;
+
+			// Checking if packet passes any of the filters
+			if (!PacketFilterManager::filter_packet(packet->buffer, &m_filter_options))
 				continue;
 
 			// Lock the mutex

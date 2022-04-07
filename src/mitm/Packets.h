@@ -201,6 +201,10 @@ TlsHeader* get_tls_header(uint8_t* packet);
 
 TlsHandshake* get_tls_handshake(TlsHeader* tls_header);
 
+bool has_arp_layer(uint8_t* packet);
+bool has_ip_layer(uint8_t* packet);
+bool has_tcp_layer(uint8_t* packet);
+bool has_udp_layer(uint8_t* packet);
 bool has_client_dns_layer(uint8_t* packet);
 bool has_client_tls_layer(uint8_t* packet);
 

@@ -196,7 +196,7 @@ bool net_utils::send_arp_request(macaddr source_mac, macaddr target_mac_buffer, 
 	return true;
 }
 
-void network_scanner::scan_network(macaddr source_mac, const std::string& source_ip, const std::string& ip_address_prefix, int range_start, int range_end)
+void network_scanner::scan_network(macaddr source_mac, const std::string& source_ip, const std::string& ip_address_prefix, MacVendorDecoder* vendor_decoder, int range_start, int range_end)
 {
 	// Delete any already existing entries
 	s_network_scan_map.clear();
@@ -282,6 +282,25 @@ void network_scanner::scan_network(macaddr source_mac, const std::string& source
 
 			// Mark the node as an online host
 			node.is_online = true;
+
+			// Attempt to decode the host's MAC adapter manufacturer
+			if (vendor_decoder)
+			{
+				char mac_str_buffer[18];
+				sprintf_s(
+					mac_str_buffer,
+					18,
+					"%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+					node.physical_address[0],
+					node.physical_address[1],
+					node.physical_address[2],
+					node.physical_address[3],
+					node.physical_address[4],
+					node.physical_address[5]
+				);
+
+				node.vendor = vendor_decoder->get_vendor(mac_str_buffer);
+			}	
 
 			// Confirm matched entry
 			++matched_entries;

@@ -46,5 +46,5 @@ target_link_libraries(${TARGET_NAME} Packet.lib wpcap.lib Ws2_32.lib d3d11.lib)
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/fonts/opensans $<TARGET_FILE_DIR:${PROJECT_NAME}>/fonts/opensans
+    ${CMAKE_SOURCE_DIR}/config $<TARGET_FILE_DIR:${PROJECT_NAME}>/config
 )

@@ -8,6 +8,7 @@ set(
     ${cwd}/AdapterList.h
     ${cwd}/Packets.h
     ${cwd}/NetUtils.h
+    ${cwd}/MacVendorDecoder.h
 
     PARENT_SCOPE
 )
@@ -19,6 +20,7 @@ set(
     ${cwd}/AdapterList.cpp
     ${cwd}/Packets.cpp
     ${cwd}/NetUtils.cpp
+    ${cwd}/MacVendorDecoder.cpp
 
     PARENT_SCOPE
 )

@@ -1,6 +1,7 @@
 #pragma once
-#include "mitm/AdapterList.h"
-#include "mitm/NetUtils.h"
+#include <mitm/AdapterList.h>
+#include <mitm/NetUtils.h>
+#include "PacketFilters.h"
 
 class ClientApplication
 {
@@ -19,6 +20,7 @@ private:
 	void render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer);
 
 	void render_intercepted_traffic_window();
+	void render_packet_filters_window();
 
 private:
 	void start_arp_spoofing_loop();
@@ -26,8 +28,10 @@ private:
 	void start_traffic_interception_loop();
 
 private:
-	AdapterList m_adapter_list;
-	Adapter m_selected_adapter;
+	AdapterList			m_adapter_list;
+	Adapter				m_selected_adapter;
+	PacketFilterOptions m_filter_options;
+	MacVendorDecoder	m_vendor_decoder;
 
 	struct MITM_data
 	{
