@@ -49,7 +49,7 @@ struct GenericPacket
 PACK(struct ArpPacket
 {
 	EthHeader	eth_layer;
-	uint16_t	hardware_type;					// Ethernet
+	uint16_t	hardware_type;					// (Ethernet,etc)
 	uint16_t	protocol;						// IPv4
 	uint8_t		hrd_len;						// Hardware Length
 	uint8_t		proto_len;						// Protocol Length
@@ -67,9 +67,9 @@ PACK(struct IpHeader
 	uint8_t		tos;           // IP type of service
 	uint16_t	totallength;   // Total length
 	uint16_t	id;            // Unique identifier 
-	uint16_t	offset;        // Fragment offset field
+	uint16_t	flags;         // Flags and fragment offset field
 	uint8_t		ttl;           // Time to live
-	uint8_t		protocol;      // Protocol(TCP,UDP etc)
+	uint8_t		protocol;      // Protocol(TCP,UDP,etc)
 	uint16_t	checksum;      // IP checksum
 	uint32_t	srcaddr;       // Source address
 	uint32_t	destaddr;      // Source address
@@ -99,16 +99,19 @@ PACK(struct UdpHeader
 	uint16_t	checksum;
 });
 
+#define DNS_QUERY_CLASS_IPV4 1
+#define DNS_QUERY_CLASS_IPV6 28
+
 PACK(struct DnsQuestion
 {
-	char        qname[254]; // 253 characters is the maximum length of a domain name (including dots)
+	std::string qname; // 253 characters is the maximum length of a domain name (including dots)
 	uint16_t    qtype;
 	uint16_t    qclass;
 });
 
 PACK(struct DnsAnswer
 {
-	char        name[254]; // 253 characters is the maximum length of a domain name (including dots)
+	std::string name; // 253 characters is the maximum length of a domain name (including dots)
 	uint16_t    type;
 	uint16_t    dnsclass;
 	uint32_t    tts;
@@ -124,8 +127,6 @@ PACK(struct DnsHeader
 	uint16_t    ancount;
 	uint16_t    nscount;
 	uint16_t    arcount;
-	DnsQuestion qd;
-	DnsAnswer   an;
 });
 
 PACK(struct TlsServerNameExtension
@@ -208,5 +209,6 @@ bool has_udp_layer(uint8_t* packet);
 bool has_client_dns_layer(uint8_t* packet);
 bool has_client_tls_layer(uint8_t* packet);
 
+DnsQuestion extract_dns_query_question(DnsHeader* dns_header);
 std::string extract_dns_query_qname(DnsHeader* dns_header);
 std::string extract_tls_connection_server_name(TlsHandshake* tls_handshake);

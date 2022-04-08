@@ -8,7 +8,13 @@
 #define INTERCEPTED_PACKET_BUFFER_SIZE 200
 
 typedef std::shared_ptr<GenericPacket> GenericPacketRef;
-typedef std::pair<PacketHeader, GenericPacketRef> PacketNode;
+
+struct PacketNode
+{
+	PacketHeader header;
+	GenericPacketRef packet_ref;
+	uint64_t packet_id = 0;
+};
 
 static std::vector<PacketNode> s_intercepted_packets;
 static std::mutex s_packet_interception_mutex;
@@ -16,6 +22,8 @@ static std::mutex s_filter_options_mutex;
 
 void ClientApplication::init()
 {
+	m_selected_packet = std::make_shared<GenericPacket>();
+
 	set_dark_theme_colors();
 	s_intercepted_packets.clear();
 
@@ -65,6 +73,9 @@ void ClientApplication::render()
 
 	// Render filtering options
 	render_packet_filters_window();
+
+	// Render packet inspection window
+	render_packet_inspection_window();
 }
 
 void ClientApplication::set_dark_theme_colors()
@@ -429,7 +440,9 @@ void ClientApplication::render_intercepted_traffic_window()
 	{
 		for (size_t i = 0; i < s_intercepted_packets.size(); ++i)
 		{
-			auto& [header, packet_ref] = s_intercepted_packets.at(i);
+			auto& node = s_intercepted_packets.at(i);
+			auto& header = node.header;
+			auto& packet_ref = node.packet_ref;
 
 			// Skip over faulty packets
 			if (!packet_ref)
@@ -443,7 +456,29 @@ void ClientApplication::render_intercepted_traffic_window()
 			if (!target_is_sender)
 				continue;
 
-			MainPacketRenderer::render_packet(packet_ref->buffer, &m_filter_options);
+			if (PacketFilterManager::filter_packet(packet_ref->buffer, &m_filter_options))
+			{
+				std::string selectable_id = "##selectable_packet" + std::to_string(i);
+				ImGui::Selectable(selectable_id.c_str(), node.packet_id == m_selected_packet_id);
+				if (ImGui::IsItemHovered())
+				{
+					// If the packet is double clicked, open
+					// a new window to inspect it with.                                                                                                                                                                                                                        
+					if (ImGui::IsMouseDoubleClicked(0))
+					{
+						m_selected_packet_id = node.packet_id;
+						memcpy(m_selected_packet->buffer, packet_ref->buffer, header.len);
+					}
+					else if (ImGui::IsMouseClicked(0))
+					{
+						m_selected_packet_id = node.packet_id;
+						memcpy(m_selected_packet->buffer, packet_ref->buffer, header.len);
+					}
+				}
+
+				ImGui::SameLine();
+				MainPacketRenderer::render_packet_selection_header(packet_ref->buffer, &m_filter_options);
+			}
 		}
 	}
 
@@ -470,6 +505,26 @@ void ClientApplication::render_packet_filters_window()
 	ImGui::SameLine(); ImGui::SetCursorPosX(360.0f);
 	ImGui::Checkbox("ARP", &m_filter_options.arp_filter);
 	
+	ImGui::End();
+}
+
+void ClientApplication::render_packet_inspection_window()
+{
+	ImGui::SetNextWindowSizeConstraints(ImVec2(300, 200), ImVec2(1800, 1000));
+	ImGui::Begin("Packet Inspection");
+
+	if (m_selected_packet_id == 0)
+	{
+		auto middle_x = ImGui::GetWindowSize().x / 2.0f - 60.0f;
+		auto middle_y = ImGui::GetWindowSize().y / 2.0f - 8.0f;
+		ImGui::SetCursorPos(ImVec2(middle_x, middle_y));
+		ImGui::Text("No Packet Selected");
+	}
+	else
+	{
+		MainPacketRenderer::render_packet_inspection_tree(m_selected_packet->buffer);
+	}
+
 	ImGui::End();
 }
 
@@ -581,8 +636,21 @@ void ClientApplication::start_traffic_interception_loop()
 			if (s_intercepted_packets.size() > INTERCEPTED_PACKET_BUFFER_SIZE)
 				s_intercepted_packets.resize(s_intercepted_packets.size() - (INTERCEPTED_PACKET_BUFFER_SIZE / 4));
 
-			// Insert the packet node
-			s_intercepted_packets.insert(s_intercepted_packets.begin(), { header, packet });
+			// Increment the new packet ID
+			static uint64_t s_new_packet_id = 0;
+			++s_new_packet_id;
+
+			if (s_new_packet_id == 0) // handle unsigned int overflows
+				s_new_packet_id = 1;
+
+			// Insert the new packet node
+			PacketNode node;
+			node.header = header;
+			node.packet_ref = std::make_shared<GenericPacket>();
+			memcpy(node.packet_ref->buffer, packet->buffer, MAX_PACKET_SIZE);
+			node.packet_id = s_new_packet_id;
+
+			s_intercepted_packets.insert(s_intercepted_packets.begin(), node);
 
 			// Unlock the mutex
 			s_packet_interception_mutex.unlock();

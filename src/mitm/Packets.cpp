@@ -152,11 +152,25 @@ bool has_client_tls_layer(uint8_t* packet)
 	return true;
 }
 
+DnsQuestion extract_dns_query_question(DnsHeader* dns_header)
+{
+	DnsQuestion question;
+	question.qname = extract_dns_query_qname(dns_header);
+
+	char* type_address = (((char*)dns_header + sizeof(DnsHeader)) + question.qname.size() + 2);
+	char* class_address = type_address + 2;
+
+	question.qtype = ntohs(*((uint16_t*)type_address));
+	question.qclass = ntohs(*((uint16_t*)class_address));
+
+	return question;
+}
+
 std::string extract_dns_query_qname(DnsHeader* dns_header)
 {
 	std::string result;
 
-	char* data = dns_header->qd.qname;
+	char* data = ((char*)dns_header + sizeof(DnsHeader));
 	int section_size = (int)*data;
 	++data;
 	

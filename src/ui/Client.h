@@ -1,7 +1,7 @@
 #pragma once
 #include <mitm/AdapterList.h>
 #include <mitm/NetUtils.h>
-#include "PacketFilters.h"
+#include "PacketRenderers.h"
 
 class ClientApplication
 {
@@ -21,6 +21,7 @@ private:
 
 	void render_intercepted_traffic_window();
 	void render_packet_filters_window();
+	void render_packet_inspection_window();
 
 private:
 	void start_arp_spoofing_loop();
@@ -48,6 +49,10 @@ private:
 	};
 
 	MITM_data m_mitm_data;
+
+	// Used in packet inspection window
+	uint64_t m_selected_packet_id = 0;
+	std::shared_ptr<GenericPacket> m_selected_packet = nullptr;
 
 private:
 	bool m_mitm_local_data_opened_flag = true;

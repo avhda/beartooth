@@ -5,7 +5,7 @@ set(
     UI_HEADERS
 
     ${cwd}/Client.h
-    ${cwd}/PacketFilters.h
+    ${cwd}/PacketRenderers.h
 
     PARENT_SCOPE
 )
@@ -14,7 +14,7 @@ set(
     UI_SOURCES
 
     ${cwd}/Client.cpp
-    ${cwd}/PacketFilters.cpp
+    ${cwd}/PacketRenderers.cpp
 
     PARENT_SCOPE
 )
