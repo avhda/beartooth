@@ -40,6 +40,9 @@ static void render_inspector_tree_node_field(
 
 bool PacketFilterManager::filter_packet(uint8_t* packet, PacketFilterOptions* filters)
 {
+	// Check if packet is valid
+	if (!packet) return false;
+
 	// Higher layer filters i.e. TLS, DNS, etc.
 	//
 	// TLS

@@ -3,6 +3,8 @@
 #include <mitm/NetUtils.h>
 #include "PacketRenderers.h"
 
+using GenericPacketRef = std::shared_ptr<GenericPacket>;
+
 class ClientApplication
 {
 public:
@@ -22,6 +24,7 @@ private:
 	void render_intercepted_traffic_window();
 	void render_packet_filters_window();
 	void render_packet_inspection_window();
+	void render_independent_inspection_windows();
 
 private:
 	void start_arp_spoofing_loop();
@@ -52,7 +55,8 @@ private:
 
 	// Used in packet inspection window
 	uint64_t m_selected_packet_id = 0;
-	std::shared_ptr<GenericPacket> m_selected_packet = nullptr;
+	GenericPacketRef m_selected_packet = nullptr;
+	std::vector<std::pair<bool, GenericPacketRef>> m_double_clicked_packets;
 
 private:
 	bool m_mitm_local_data_opened_flag = true;

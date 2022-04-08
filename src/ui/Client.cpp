@@ -7,11 +7,9 @@
 #define CHECK_TO_BLINK_ELEMENT (fmodf((float)ImGui::GetTime(), 0.80f) < 0.34f)
 #define INTERCEPTED_PACKET_BUFFER_SIZE 200
 
-typedef std::shared_ptr<GenericPacket> GenericPacketRef;
-
 struct PacketNode
 {
-	PacketHeader header;
+	PacketHeader header = {};
 	GenericPacketRef packet_ref;
 	uint64_t packet_id = 0;
 };
@@ -76,6 +74,10 @@ void ClientApplication::render()
 
 	// Render packet inspection window
 	render_packet_inspection_window();
+
+	// Render any double clicked
+	// packet inspection windows.
+	render_independent_inspection_windows();
 }
 
 void ClientApplication::set_dark_theme_colors()
@@ -466,8 +468,16 @@ void ClientApplication::render_intercepted_traffic_window()
 					// a new window to inspect it with.                                                                                                                                                                                                                        
 					if (ImGui::IsMouseDoubleClicked(0))
 					{
+						// Select the main inspection packet
 						m_selected_packet_id = node.packet_id;
 						memcpy(m_selected_packet->buffer, packet_ref->buffer, header.len);
+
+						// Add a new packet to the inspection list
+						size_t new_packet_idx = m_double_clicked_packets.size();
+						m_double_clicked_packets.push_back({ true, std::make_shared<GenericPacket>() });
+
+						// Copy the data from the current packet to the new inspection packet
+						memcpy(m_double_clicked_packets.at(new_packet_idx).second->buffer, packet_ref->buffer, header.len);
 					}
 					else if (ImGui::IsMouseClicked(0))
 					{
@@ -526,6 +536,31 @@ void ClientApplication::render_packet_inspection_window()
 	}
 
 	ImGui::End();
+}
+
+void ClientApplication::render_independent_inspection_windows()
+{
+	for (size_t i = 0; i < m_double_clicked_packets.size(); ++i)
+	{
+		auto& [window_opened_state, packet] = m_double_clicked_packets.at(i);
+
+		// Open the window
+		ImGui::SetNextWindowSizeConstraints(ImVec2(600, 500), ImVec2(1000, 1800));
+		ImGui::Begin(("Packet " + std::to_string(i)).c_str(), &window_opened_state);
+
+		// Render the packet tree
+		MainPacketRenderer::render_packet_inspection_tree(packet->buffer);
+
+		ImGui::End();
+	}
+
+	// Cleanup any closed windows
+	m_double_clicked_packets.erase(std::remove_if(
+		m_double_clicked_packets.begin(), m_double_clicked_packets.end(),
+		[](const auto& node) {
+			return !node.first; // remove if window is closed
+		}), m_double_clicked_packets.end()
+	);
 }
 
 void ClientApplication::start_arp_spoofing_loop()
