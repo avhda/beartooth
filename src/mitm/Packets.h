@@ -1,6 +1,7 @@
 #pragma once
 #include <cinttypes>
 #include <string>
+#include <vector>
 
 #ifdef _MSC_VER
 #define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
@@ -157,16 +158,25 @@ PACK(struct TlsHandshake
 	uint8_t		length[3];				// 3 byte length value
 	uint16_t	version;				// TLS protocol version
 	uint8_t		random[32];				// 32 byte random key field
-	uint8_t		session_id_len;			// Length of the session ID (usually 32 bytes)
-	uint8_t		session_id[32];			// Session ID
-	uint16_t	cipher_suites_len;		// Length of the section with encryption algos
-	uint8_t		cipher_suites[32];		// Most common case: 16 suites (32 bytes)
-	uint8_t		compression_method_len;	// Number of compression methods
-	uint8_t		compression_method;		// Most common case: no compression (null)
-	uint16_t	extensions_len;			// Length of the extensions segment
-	uint32_t	extension_reserved;		// Reserved extension
-	TlsServerNameExtension extension_server_name;
+	uint8_t		session_id_len;			// Length of the session ID
 });
+
+//
+// Since TLS handshake's certain fields
+// are of varying length from this point on,
+// offsets need to be calculated dynamically.
+//
+namespace tls
+{
+	uint8_t*	get_session_id(TlsHandshake* handshake);
+	uint16_t	get_cipher_suites_len(TlsHandshake* handshake);
+	void		get_cipher_suites(TlsHandshake* handshake, std::vector<uint16_t>& cipher_suites);
+	uint8_t		get_compression_methods_len(TlsHandshake* handshake);
+	void		get_compression_methods(TlsHandshake* handshake, std::vector<uint8_t>& compression_methods);
+	uint16_t	get_extensions_len(TlsHandshake* handshake);
+	uint32_t	get_extension_reserved(TlsHandshake* handshake);
+	TlsServerNameExtension* get_extension_server_name(TlsHandshake* handshake);
+}
 
 void craft_arp_request_packet(
 	ArpPacket* packet,

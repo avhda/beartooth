@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 #include <WS2spi.h>
 #include <map>
+#include <algorithm>
 
 static std::string convert_ip_to_string(uint32_t ip)
 {
@@ -9,6 +10,30 @@ static std::string convert_ip_to_string(uint32_t ip)
 	memcpy(&sa.sin_addr, &ip, sizeof(uint32_t));
 
 	return std::string(inet_ntoa(sa.sin_addr));
+}
+
+static std::string binary_to_hex_string(
+	const uint8_t* inBinaryData,
+	size_t inBinaryDataLength
+)
+{
+	static const char* hexDigits = "0123456789ABCDEF";
+
+	// Create a string and give a hint to its final size (twice the size
+	// of the input binary data)
+	std::string hexString;
+	hexString.reserve(inBinaryDataLength * 2);
+
+	// Run through the binary data and convert to a hex string
+	std::for_each(
+		inBinaryData,
+		inBinaryData + inBinaryDataLength,
+		[&hexString](uint8_t inputByte) {
+			hexString.push_back(hexDigits[inputByte >> 4]);
+			hexString.push_back(hexDigits[inputByte & 0x0F]);
+		});
+
+	return hexString;
 }
 
 static void render_inspector_tree_node_field(
@@ -104,7 +129,7 @@ void TlsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 		render_inspector_tree_node_field(
 			"Version: ",
 			(uint32_t)ntohs(tls_header->version),
-			false,
+			true,
 			value_indent
 		);
 
@@ -121,7 +146,7 @@ void TlsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 		// then render the handshake info.
 		if (tls_header->content_type == TLS_CONTENT_TYPE_HANDSHAKE)
 		{
-			int value_indent_handshake = 190;
+			int value_indent_handshake = 200;
 
 			TlsHandshake* tls_handshake = get_tls_handshake(tls_header);
 			if (ImGui::TreeNode("TLS Handshake"))
@@ -137,34 +162,88 @@ void TlsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 				render_inspector_tree_node_field(
 					"Version: ",
 					(uint32_t)ntohs(tls_handshake->version),
+					true,
+					value_indent_handshake
+				);
+
+				ImGui::Text("%s", "Random (key): ");
+				ImGui::SameLine(); ImGui::SetCursorPosX((float)value_indent_handshake);
+				ImGui::Text("%s", binary_to_hex_string(tls_handshake->random, sizeof(tls_handshake->random)).c_str());
+
+				render_inspector_tree_node_field(
+					"Session ID Length: ",
+					(uint32_t)tls_handshake->session_id_len,
 					false,
 					value_indent_handshake
 				);
 
+				ImGui::Text("%s", "Session ID: ");
+				ImGui::SameLine(); ImGui::SetCursorPosX((float)value_indent_handshake);
+				ImGui::Text("%s", binary_to_hex_string(tls::get_session_id(tls_handshake), tls_handshake->session_id_len).c_str());
+
+				auto cipher_suites_length = tls::get_cipher_suites_len(tls_handshake);
 				render_inspector_tree_node_field(
-					"Random (key): ",
-					*((uint32_t*)tls_handshake->random),
+					"Cipher Suites Length: ",
+					(uint32_t)cipher_suites_length,
 					false,
 					value_indent_handshake
 				);
 
+				uint32_t cipher_suites_count = cipher_suites_length / 2;
+				if (ImGui::TreeNode(("Cipher Suites (" + std::to_string(cipher_suites_count) + " suites):").c_str()))
+				{
+					int value_indent_cipher_suite = 170;
+
+					std::vector<uint16_t> cipher_suites;
+					tls::get_cipher_suites(tls_handshake, cipher_suites);
+
+					for (auto& suite : cipher_suites)
+					{
+						render_inspector_tree_node_field(
+							"Cipher Suite: ",
+							(uint32_t)suite,
+							true,
+							value_indent_cipher_suite
+						);
+					}
+
+					ImGui::TreePop();
+					ImGui::Spacing();
+				}
+
+				auto compression_methods = tls::get_compression_methods_len(tls_handshake);
 				render_inspector_tree_node_field(
-					"Session ID: ",
-					*((uint32_t*)tls_handshake->session_id),
+					"Compression Methods: ",
+					(uint32_t)compression_methods,
 					false,
 					value_indent_handshake
 				);
 
-				render_inspector_tree_node_field(
-					"Compression: ",
-					(uint32_t)tls_handshake->compression_method,
-					false,
-					value_indent_handshake
-				);
+				if (ImGui::TreeNode("Compression Methods:"))
+				{
+					int value_indent_compression_method = 220;
+
+					std::vector<uint8_t> compression_methods;
+					tls::get_compression_methods(tls_handshake, compression_methods);
+
+					for (auto& method : compression_methods)
+					{
+						render_inspector_tree_node_field(
+							"Method: ",
+							(uint32_t)method,
+							true,
+							value_indent_compression_method,
+							{ { 0, "(null)" } }
+						);
+					}
+
+					ImGui::TreePop();
+					ImGui::Spacing();
+				}
 
 				render_inspector_tree_node_field(
 					"Extensions: ",
-					(uint32_t)ntohs(tls_handshake->extensions_len),
+					(uint32_t)tls::get_extensions_len(tls_handshake),
 					false,
 					value_indent_handshake
 				);
@@ -173,38 +252,39 @@ void TlsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 				if (ImGui::TreeNode("Server Name Extension"))
 				{
 					int extension_indent_handshake = 220;
+					TlsServerNameExtension* extension_server_name = tls::get_extension_server_name(tls_handshake);
 
 					render_inspector_tree_node_field(
 						"Type: ",
-						(uint32_t)ntohs(tls_handshake->extension_server_name.type),
+						(uint32_t)ntohs(extension_server_name->type),
 						false,
 						extension_indent_handshake
 					);
 
 					render_inspector_tree_node_field(
 						"Length: ",
-						(uint32_t)ntohs(tls_handshake->extension_server_name.length),
+						(uint32_t)ntohs(extension_server_name->length),
 						false,
 						extension_indent_handshake
 					);
 
 					render_inspector_tree_node_field(
 						"Name List Length: ",
-						(uint32_t)ntohs(tls_handshake->extension_server_name.server_name_list_len),
+						(uint32_t)ntohs(extension_server_name->server_name_list_len),
 						false,
 						extension_indent_handshake
 					);
 
 					render_inspector_tree_node_field(
 						"Server Name Type: ",
-						(uint32_t)tls_handshake->extension_server_name.server_name_type,
+						(uint32_t)extension_server_name->server_name_type,
 						false,
 						extension_indent_handshake
 					);
 
 					render_inspector_tree_node_field(
 						"Server Name Length: ",
-						(uint32_t)ntohs(tls_handshake->extension_server_name.server_name_len),
+						(uint32_t)ntohs(extension_server_name->server_name_len),
 						false,
 						extension_indent_handshake
 					);

@@ -3,6 +3,8 @@
 
 constexpr unsigned char BROADCAST_ADDR[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
+#define TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE 39
+
 void craft_arp_request_packet(ArpPacket* packet, macaddr source_mac, uint32_t source_ip, uint32_t target_ip)
 {
 	// Ethernet Layer
@@ -152,6 +154,235 @@ bool has_client_tls_layer(uint8_t* packet)
 	return true;
 }
 
+namespace tls
+{
+	uint8_t* get_session_id(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		return ptr;
+	}
+
+	uint16_t get_cipher_suites_len(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		return cipher_suites_len;
+	}
+
+	void get_cipher_suites(TlsHandshake* handshake, std::vector<uint16_t>& cipher_suites)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// Copy the cipher suites to the output buffer
+		for (uint16_t i = 0; i < cipher_suites_len / sizeof(uint16_t); ++i)
+		{
+			uint16_t cipher_suite = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+			cipher_suites.push_back(cipher_suite);
+
+			// advance the pointer to the next element
+			ptr += sizeof(uint16_t);
+		}
+	}
+
+	uint8_t get_compression_methods_len(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->compression_methods_len
+		ptr += cipher_suites_len;
+
+		// Get the number of compression methods
+		uint8_t compression_methods_len = *ptr;
+
+		return compression_methods_len;
+	}
+
+	void get_compression_methods(TlsHandshake* handshake, std::vector<uint8_t>& compression_methods)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->compression_methods_len
+		ptr += cipher_suites_len;
+
+		// Get the number of compression methods
+		uint8_t compression_methods_len = *ptr;
+
+		// ptr = handshake->compression_methods
+		ptr += sizeof(uint8_t);
+
+		// Copy the compression methods to the output buffer
+		for (uint8_t i = 0; i < compression_methods_len; ++i)
+		{
+			compression_methods.push_back(*ptr);
+
+			// advance the pointer to the next element
+			ptr += sizeof(uint8_t);
+		}
+	}
+
+	uint16_t get_extensions_len(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->compression_methods_len
+		ptr += cipher_suites_len;
+
+		// Get the number of compression methods
+		uint8_t compression_methods_len = *ptr;
+
+		// ptr = handshake->compression_methods
+		ptr += sizeof(uint8_t);
+
+		// ptr = handshake->extensions_len
+		ptr += compression_methods_len;
+
+		// Get number of extensions
+		uint16_t extensions_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		return extensions_len;
+	}
+
+	uint32_t get_extension_reserved(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->compression_methods_len
+		ptr += cipher_suites_len;
+
+		// Get the number of compression methods
+		uint8_t compression_methods_len = *ptr;
+
+		// ptr = handshake->compression_methods
+		ptr += sizeof(uint8_t);
+
+		// ptr = handshake->extensions_len
+		ptr += compression_methods_len;
+
+		// ptr = handshake->extension_reserved
+		ptr += sizeof(uint16_t);
+
+		// Get reserved extension
+		uint32_t extension_reserved = *reinterpret_cast<uint32_t*>(ptr);
+
+		return extension_reserved;
+	}
+
+	TlsServerNameExtension* get_extension_server_name(TlsHandshake* handshake)
+	{
+		// ptr = handshake->session_id
+		uint8_t* ptr = (uint8_t*)handshake + TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE;
+
+		// Get the session id length
+		uint8_t session_id_len = handshake->session_id_len;
+
+		// ptr = handshake->cipher_suites_len
+		ptr += session_id_len;
+
+		// Get the number of cipher suites
+		uint16_t cipher_suites_len = ntohs(*reinterpret_cast<uint16_t*>(ptr));
+
+		// ptr = handshake->cipher_suites
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->compression_methods_len
+		ptr += cipher_suites_len;
+
+		// Get the number of compression methods
+		uint8_t compression_methods_len = *ptr;
+
+		// ptr = handshake->compression_methods
+		ptr += sizeof(uint8_t);
+
+		// ptr = handshake->extensions_len
+		ptr += compression_methods_len;
+
+		// ptr = handshake->extension_reserved
+		ptr += sizeof(uint16_t);
+
+		// ptr = handshake->extension_server_name
+		ptr += sizeof(uint32_t);
+
+		return reinterpret_cast<TlsServerNameExtension*>(ptr);
+	}
+}
+
 DnsQuestion extract_dns_query_question(DnsHeader* dns_header)
 {
 	DnsQuestion question;
@@ -195,8 +426,10 @@ std::string extract_dns_query_qname(DnsHeader* dns_header)
 
 std::string extract_tls_connection_server_name(TlsHandshake* tls_handshake)
 {
+	TlsServerNameExtension* extension_server_name = tls::get_extension_server_name(tls_handshake);
+
 	return std::string(
-		(const char*)tls_handshake->extension_server_name.server_name,
-		(size_t)tls_handshake->extension_server_name.server_name_len
+		(const char*)extension_server_name->server_name,
+		(size_t)extension_server_name->server_name_len
 	);
 }
