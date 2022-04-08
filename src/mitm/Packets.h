@@ -152,6 +152,23 @@ PACK(struct TlsHeader
 
 #define TLS_HANDSHAKE_TYPE_HELLO_CLIENT 1
 
+#define TLS_CIPHER_SUITE_RESERVED                       0xaaaa
+#define TLS_AES_128_GCM_SHA256                          0x1301
+#define TLS_AES_256_GCM_SHA384                          0x1302
+#define TLS_CHACHA20_POLY1305_SHA256                    0x1303
+#define TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256         0xc02b
+#define TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256           0xc02f
+#define TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384         0xc02c
+#define TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384           0xc030
+#define TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256   0xcca9
+#define TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256     0xcca8
+#define TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA              0xc013
+#define TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA              0xc014
+#define TLS_RSA_WITH_AES_128_GCM_SHA256                 0x009c
+#define TLS_RSA_WITH_AES_256_GCM_SHA384                 0x009d
+#define TLS_RSA_WITH_AES_128_CBC_SHA                    0x002f
+#define TLS_RSA_WITH_AES_256_CBC_SHA                    0x0035
+
 PACK(struct TlsHandshake
 {
 	uint8_t		type;					// Handshake type i.e. Hello Client
