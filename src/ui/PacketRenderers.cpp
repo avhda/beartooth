@@ -303,7 +303,8 @@ void DnsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 					"Type: ",
 					(uint32_t)qd.qtype,
 					false,
-					190
+					190,
+					{ { DNS_QUERY_TYPE_IPV4, "A  (IPv4)" }, { DNS_QUERY_TYPE_IPV6, "AAAA  (IPv6)" } }
 				);
 
 				render_inspector_tree_node_field(
@@ -311,7 +312,7 @@ void DnsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 					(uint32_t)qd.qclass,
 					false,
 					190,
-					{ { DNS_QUERY_CLASS_IPV4, "A  (IPv4)" }, { DNS_QUERY_CLASS_IPV6, "AAAA  (IPv6)" } }
+					{ { DNS_QUERY_CLASS_IN, "(In)" } }
 				);
 
 				ImGui::Text("Name: ");

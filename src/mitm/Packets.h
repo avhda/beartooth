@@ -99,8 +99,9 @@ PACK(struct UdpHeader
 	uint16_t	checksum;
 });
 
-#define DNS_QUERY_CLASS_IPV4 1
-#define DNS_QUERY_CLASS_IPV6 28
+#define DNS_QUERY_CLASS_IN		1
+#define DNS_QUERY_TYPE_IPV4		1
+#define DNS_QUERY_TYPE_IPV6		28
 
 PACK(struct DnsQuestion
 {
