@@ -6,6 +6,7 @@ set(
 
     ${cwd}/Client.h
     ${cwd}/PacketRenderers.h
+    ${cwd}/ConfigLoader.h
 
     PARENT_SCOPE
 )
@@ -15,6 +16,7 @@ set(
 
     ${cwd}/Client.cpp
     ${cwd}/PacketRenderers.cpp
+    ${cwd}/ConfigLoader.cpp
 
     PARENT_SCOPE
 )

@@ -2,6 +2,7 @@
 #include <mitm/AdapterList.h>
 #include <mitm/NetUtils.h>
 #include "PacketRenderers.h"
+#include "ConfigLoader.h"
 
 using GenericPacketRef = std::shared_ptr<GenericPacket>;
 
@@ -13,6 +14,9 @@ public:
 
 private:
 	void set_dark_theme_colors();
+	
+	void render_menu_bar();
+	void render_settings_window();
 
 	void render_adapters_list();
 	void render_mitm_attack_data();
@@ -27,11 +31,14 @@ private:
 	void render_independent_inspection_windows();
 
 private:
+	void apply_user_settings();
+
 	void start_arp_spoofing_loop();
 	void stop_attack_and_restore_arp_tables();
 	void start_traffic_interception_loop();
 
 private:
+	ConfigLoader		m_config;
 	AdapterList			m_adapter_list;
 	Adapter				m_selected_adapter;
 	PacketFilterOptions m_filter_options;
@@ -59,6 +66,9 @@ private:
 	std::vector<std::pair<bool, GenericPacketRef>> m_double_clicked_packets;
 
 private:
+	bool m_display_settings_window = false;
+	bool m_is_settings_window_opened = false;
+
 	bool m_mitm_local_data_opened_flag = true;
 	bool m_mitm_target_data_opened_flag = true;
 	bool m_mitm_gateway_data_opened_flag = true;
@@ -69,6 +79,7 @@ private:
 	
 	bool m_scanning_network = false;
 
-	const char* m_select_target_window_id = "Select target host";
-	const char* m_select_gateway_window_id = "Select gateway host";
+	const char* m_select_target_window_id	= "Select target host";
+	const char* m_select_gateway_window_id	= "Select gateway host";
+	const char* m_settings_window_id		= "Settings window";
 };

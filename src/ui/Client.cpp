@@ -20,20 +20,47 @@ static std::mutex s_filter_options_mutex;
 
 void ClientApplication::init()
 {
-	m_selected_packet = std::make_shared<GenericPacket>();
-
+	// Enabling dark theme
 	set_dark_theme_colors();
+
+	// Default setup
+	m_selected_packet = std::make_shared<GenericPacket>();
 	s_intercepted_packets.clear();
 
+	// Load network adapters
 	m_adapter_list.find_adapters();
 
+	// Load the MAC vendor database
 	m_vendor_decoder.load_vendor_list();
+
+	// Load user settings
+	m_config.read_config();
+
+	// Apply initial user settings
+	apply_user_settings();
+}
+
+void ClientApplication::apply_user_settings()
+{
+	// Put any default loading code here...
 }
 
 void ClientApplication::render()
 {
 	// Create dockspace
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+
+	// Render the menu bar
+	render_menu_bar();
+
+	// If the user wants to open settings,
+	// display the settings popup window.
+	if (m_display_settings_window)
+	{
+		ImGui::OpenPopup(m_settings_window_id);
+		m_display_settings_window = false;
+	}
+	render_settings_window();
 
 	// If there is no selected adapter, render
 	// the adapter list so the user can select
@@ -111,6 +138,50 @@ void ClientApplication::set_dark_theme_colors()
 	colors[ImGuiCol_TitleBg] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgActive] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgCollapsed] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
+}
+
+void ClientApplication::render_menu_bar()
+{
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("Settings"))
+			{
+				m_is_settings_window_opened = true;
+				m_display_settings_window = true;
+			}
+
+			ImGui::Separator();
+
+			if (ImGui::MenuItem("Exit"))
+			{
+				
+			}
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
+
+}
+
+void ClientApplication::render_settings_window()
+{
+	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 500), ImVec2(700, 500));
+	if (ImGui::BeginPopupModal(m_settings_window_id, &m_is_settings_window_opened, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		bool ip_forwarding_val = m_config.get_bool_value(CONFIG_KEY_IP_FORWARDING);
+
+		if (ImGui::Checkbox("IP Forwarding", &ip_forwarding_val))
+		{
+			net_utils::set_system_ip_forwarding(ip_forwarding_val);
+			m_config.write_value(CONFIG_KEY_IP_FORWARDING, ip_forwarding_val);
+		}
+
+		ImGui::EndPopup();
+	}
 }
 
 void ClientApplication::render_adapters_list()

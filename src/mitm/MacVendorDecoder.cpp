@@ -35,6 +35,8 @@ void MacVendorDecoder::load_vendor_list()
 
 		m_vendor_list.push_back({ mac, vendor });
 	}
+
+	file.close();
 }
 
 std::string MacVendorDecoder::get_vendor(const std::string& mac)
