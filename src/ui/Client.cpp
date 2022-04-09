@@ -176,8 +176,10 @@ void ClientApplication::render_settings_window()
 
 		if (ImGui::Checkbox("IP Forwarding", &ip_forwarding_val))
 		{
-			net_utils::set_system_ip_forwarding(ip_forwarding_val);
-			m_config.write_value(CONFIG_KEY_IP_FORWARDING, ip_forwarding_val);
+			bool value_changed = net_utils::set_system_ip_forwarding(ip_forwarding_val);
+			
+			if (value_changed)
+				m_config.write_value(CONFIG_KEY_IP_FORWARDING, ip_forwarding_val);
 		}
 
 		ImGui::EndPopup();

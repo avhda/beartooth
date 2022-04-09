@@ -35,6 +35,33 @@ void net_utils::print_mac_address(macaddr addr, bool newline)
 		printf("\n");
 }
 
+bool net_utils::set_system_ip_forwarding(bool forward)
+{
+	std::wstring cmd = L"Set-NetIPInterface -Forwarding ";
+	std::wstring option = forward ? L"Enabled" : L"Disabled";
+	cmd += option;
+
+	SHELLEXECUTEINFO ShExecInfo = { 0 };
+	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+	ShExecInfo.hwnd = NULL;
+	ShExecInfo.lpVerb = L"runas";
+	ShExecInfo.lpFile = L"powershell.exe";
+	ShExecInfo.lpParameters = cmd.c_str();
+	ShExecInfo.lpDirectory = NULL;
+	ShExecInfo.nShow = SW_HIDE;
+	ShExecInfo.hInstApp = NULL;
+	BOOL result = ShellExecuteExW(&ShExecInfo);
+
+	if (!ShExecInfo.hProcess)
+		return false;
+
+	WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
+	CloseHandle(ShExecInfo.hProcess);
+
+	return result;
+}
+
 bool net_utils::set_adapter(const Adapter& adapter)
 {
 	s_adapter = adapter;

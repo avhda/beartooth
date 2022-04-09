@@ -10,6 +10,16 @@ public:
 	static void print_packet_bytes(const char* title, const uint8_t* data, size_t dataLen, bool format = true);
 	static void print_mac_address(macaddr addr, bool newline = true);
 	
+	//
+	// *** NOTE ***
+	// This method will still rely on the following:
+	//		1) "Routing and Remote Access" service is running
+	//		2) "IPEnableRouter" value in the registry key
+	//			HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+	//			is set to 1.
+	//
+	static bool set_system_ip_forwarding(bool forward);
+
 	static bool  set_adapter(const Adapter& adapter);
 	static void* get_native_pcap_handle();
 	static bool  retrieve_local_mac_address(macaddr out_buffer);
