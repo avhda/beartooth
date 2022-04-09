@@ -515,7 +515,10 @@ void ClientApplication::render_intercepted_traffic_window()
 	{
 		for (size_t i = 0; i < s_intercepted_packets.size(); ++i)
 		{
-			auto& node = s_intercepted_packets.at(i);
+			// Copying the node by value seems to the "thousand packet crash"
+			// when there is a flood of packets and when node is taken by reference,
+			// the buffer is not read correctly and causes access violation exception.
+			auto  node = s_intercepted_packets.at(i);
 			auto& header = node.header;
 			auto& packet_ref = node.packet_ref;
 
