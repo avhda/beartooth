@@ -46,6 +46,15 @@ int main(int, char**)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
+    //
+    // **NOTE***
+    //  Comment out these two lines of code to enable automatic
+    //  saving/loading of .ini file during development to customize
+    //  the main layout.
+    //
+    io.IniFilename = NULL;                                      // Disable automatic loading/saving .ini file
+    ImGui::LoadIniSettingsFromDisk("config/imgui.ini");         // Manually load the "good" docking settings
+
     // Setup ImGui style
     ImGui::StyleColorsDark();
 
