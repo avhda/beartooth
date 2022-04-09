@@ -38,6 +38,9 @@ void ClientApplication::init()
 
 	// Apply initial user settings
 	apply_user_settings();
+
+	// Load UI textures
+	load_textures();
 }
 
 void ClientApplication::apply_user_settings()
@@ -138,6 +141,12 @@ void ClientApplication::set_dark_theme_colors()
 	colors[ImGuiCol_TitleBg] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgActive] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgCollapsed] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
+}
+
+void ClientApplication::load_textures()
+{
+	m_pause_capture_texture.load_from_file("config/icons/pause.png");
+	m_resume_capture_texture.load_from_file("config/icons/play.png");
 }
 
 void ClientApplication::render_menu_bar()
@@ -504,6 +513,8 @@ void ClientApplication::render_intercepted_traffic_window()
 	ImGui::SetNextWindowSize(ImVec2(500, 400));
 	ImGui::Begin("Intercepted Traffic");
 
+	ImGui::SetCursorPosY(52);
+
 	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
 	{
 		auto middle_x = ImGui::GetWindowSize().x / 2.0f - 60.0f;
@@ -567,6 +578,45 @@ void ClientApplication::render_intercepted_traffic_window()
 			}
 		}
 	}
+
+	// Render the pause/resume button
+	ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 80);
+	ImGui::SetCursorPosY(26);
+	const float image_size = 15.0f;
+	auto pause_resume_selectable_size = ImVec2(154, 22);
+
+	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
+		ImGui::BeginDisabled();
+
+	if (!m_mitm_data.packet_capture_paused)
+	{
+		if (ImGui::Selectable("##pause_capture", false, 0, pause_resume_selectable_size))
+			m_mitm_data.packet_capture_paused = true;
+
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 64);
+		ImGui::Image((void*)m_pause_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosY(24);
+		ImGui::Text("%s", "pause capture");
+	}
+	else
+	{
+		if (ImGui::Selectable("##resume_capture", false, 0, pause_resume_selectable_size))
+			m_mitm_data.packet_capture_paused = false;
+
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 64);
+		ImGui::Image((void*)m_resume_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosY(24);
+		ImGui::Text("%s", "resume capture");
+	}
+
+	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
+		ImGui::EndDisabled();
 
 	ImGui::End();
 }
@@ -722,6 +772,10 @@ void ClientApplication::start_traffic_interception_loop()
 			PacketHeader header;
 
 			net_utils::recv_packet(&header, packet->buffer, MAX_PACKET_SIZE);
+
+			// Check if packet capturing is paused
+			if (m_mitm_data.packet_capture_paused)
+				continue;
 
 			EthHeader* eth_header = get_eth_header(packet->buffer);
 

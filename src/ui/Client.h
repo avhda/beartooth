@@ -3,6 +3,7 @@
 #include <mitm/NetUtils.h>
 #include "PacketRenderers.h"
 #include "ConfigLoader.h"
+#include "Texture.h"
 
 using GenericPacketRef = std::shared_ptr<GenericPacket>;
 
@@ -14,6 +15,7 @@ public:
 
 private:
 	void set_dark_theme_colors();
+	void load_textures();
 	
 	void render_menu_bar();
 	void render_settings_window();
@@ -55,6 +57,7 @@ private:
 		std::string gateway_ip;
 
 		bool attack_in_progress = false;
+		bool packet_capture_paused = false;
 		bool rearping_in_progress = false;
 	};
 
@@ -82,4 +85,8 @@ private:
 	const char* m_select_target_window_id	= "Select target host";
 	const char* m_select_gateway_window_id	= "Select gateway host";
 	const char* m_settings_window_id		= "Settings window";
+
+private:
+	Texture m_pause_capture_texture;
+	Texture m_resume_capture_texture;
 };

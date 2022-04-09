@@ -73,6 +73,9 @@ int main(int, char**)
     // Load Fonts
     io.FontDefault = io.Fonts->AddFontFromFileTTF("config/fonts/opensans/OpenSans-Regular.ttf", 18.0f);
 
+    // Initialize texture environment
+    Texture::set_d3d11_device_ptr(g_pd3dDevice);
+
     // Create the client application
     auto client = std::make_unique<ClientApplication>();
 
