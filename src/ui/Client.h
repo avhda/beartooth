@@ -5,8 +5,6 @@
 #include "ConfigLoader.h"
 #include "Texture.h"
 
-using GenericPacketRef = std::shared_ptr<GenericPacket>;
-
 class ClientApplication
 {
 public:

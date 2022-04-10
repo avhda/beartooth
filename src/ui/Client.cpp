@@ -5,14 +5,7 @@
 #include <mutex>
 
 #define CHECK_TO_BLINK_ELEMENT (fmodf((float)ImGui::GetTime(), 0.80f) < 0.34f)
-#define INTERCEPTED_PACKET_BUFFER_SIZE 200
-
-struct PacketNode
-{
-	PacketHeader header = {};
-	GenericPacketRef packet_ref;
-	uint64_t packet_id = 0;
-};
+#define INTERCEPTED_PACKET_BUFFER_SIZE 2000
 
 static std::vector<PacketNode> s_intercepted_packets;
 static std::mutex s_packet_interception_mutex;
@@ -510,10 +503,79 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 
 void ClientApplication::render_intercepted_traffic_window()
 {
-	ImGui::SetNextWindowSize(ImVec2(500, 400));
+	ImGui::SetNextWindowSizeConstraints(ImVec2(1000, 400), ImVec2(10000, 10000));
 	ImGui::Begin("Intercepted Traffic");
 
-	ImGui::SetCursorPosY(52);
+	// Render packet information categories
+	ImGui::Spacing();
+
+	ImGui::SetCursorPosX(PACKET_ID_COLUMN_OFFSET);
+	ImGui::Text("%s", "ID"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_TIME_COLUMN_OFFSET);
+	ImGui::Text("%s", "Time"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_PROTOCOL_COLUMN_OFFSET);
+	ImGui::Text("%s", "Protocol"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET);
+	ImGui::Text("%s", "Source"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET);
+	ImGui::Text("%s", "Destination"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_INFO_COLUMN_OFFSET);
+	ImGui::Text("%s", "Info"); ImGui::SameLine();
+
+	// Render the pause/resume button
+	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 160);
+	const float image_size = 15.0f;
+	auto pause_resume_selectable_size = ImVec2(154, 18);
+
+	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
+		ImGui::BeginDisabled();
+
+	if (!m_mitm_data.packet_capture_paused)
+	{
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2);
+
+		if (ImGui::Selectable("##pause_capture", false, 0, pause_resume_selectable_size))
+			m_mitm_data.packet_capture_paused = true;
+
+		ImGui::SameLine();
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 144);
+		ImGui::Image((void*)m_pause_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2);
+		ImGui::Text("%s", "pause capture");
+	}
+	else
+	{
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2);
+
+		if (ImGui::Selectable("##resume_capture", false, 0, pause_resume_selectable_size))
+			m_mitm_data.packet_capture_paused = false;
+
+		ImGui::SameLine();
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 144);
+		ImGui::Image((void*)m_resume_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2);
+		ImGui::Text("%s", "resume capture");
+	}
+
+	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
+		ImGui::EndDisabled();
+
+	// Render the actual intercepted traffic (list of packets)
+	ImGui::Separator();
+	ImGui::Spacing();
 
 	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
 	{
@@ -574,49 +636,10 @@ void ClientApplication::render_intercepted_traffic_window()
 				}
 
 				ImGui::SameLine();
-				MainPacketRenderer::render_packet_selection_header(packet_ref->buffer, &m_filter_options);
+				MainPacketRenderer::render_packet_selection_header(node, &m_filter_options);
 			}
 		}
 	}
-
-	// Render the pause/resume button
-	ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 80);
-	ImGui::SetCursorPosY(26);
-	const float image_size = 15.0f;
-	auto pause_resume_selectable_size = ImVec2(154, 22);
-
-	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
-		ImGui::BeginDisabled();
-
-	if (!m_mitm_data.packet_capture_paused)
-	{
-		if (ImGui::Selectable("##pause_capture", false, 0, pause_resume_selectable_size))
-			m_mitm_data.packet_capture_paused = true;
-
-		ImGui::SameLine();
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 64);
-		ImGui::Image((void*)m_pause_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
-		ImGui::SameLine();
-
-		ImGui::SetCursorPosY(24);
-		ImGui::Text("%s", "pause capture");
-	}
-	else
-	{
-		if (ImGui::Selectable("##resume_capture", false, 0, pause_resume_selectable_size))
-			m_mitm_data.packet_capture_paused = false;
-
-		ImGui::SameLine();
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 64);
-		ImGui::Image((void*)m_resume_capture_texture.get_resource_handle(), ImVec2(image_size, image_size));
-		ImGui::SameLine();
-
-		ImGui::SetCursorPosY(24);
-		ImGui::Text("%s", "resume capture");
-	}
-
-	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
-		ImGui::EndDisabled();
 
 	ImGui::End();
 }
@@ -814,6 +837,7 @@ void ClientApplication::start_traffic_interception_loop()
 			node.packet_ref = std::make_shared<GenericPacket>();
 			memcpy(node.packet_ref->buffer, packet->buffer, MAX_PACKET_SIZE);
 			node.packet_id = s_new_packet_id;
+			node.timestamp = (float)ImGui::GetTime();
 
 			s_intercepted_packets.insert(s_intercepted_packets.begin(), node);
 

@@ -12,6 +12,26 @@ static std::string convert_ip_to_string(uint32_t ip)
 	return std::string(inet_ntoa(sa.sin_addr));
 }
 
+static std::string convert_mac_to_string(macaddr mac)
+{
+	char buffer[18];
+
+	// Format copy the source MAC
+	sprintf_s(
+		buffer,
+		sizeof(buffer),
+		"%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+		mac[0],
+		mac[1],
+		mac[2],
+		mac[3],
+		mac[4],
+		mac[5]
+	);
+
+	return std::string(buffer);
+}
+
 static std::string binary_to_hex_string(
 	const uint8_t* inBinaryData,
 	size_t inBinaryDataLength
@@ -34,6 +54,50 @@ static std::string binary_to_hex_string(
 		});
 
 	return hexString;
+}
+
+static void render_packet_header_basic_fields(PacketNode& node, const std::string& protocol)
+{
+	ImGui::SetCursorPosX(PACKET_ID_COLUMN_OFFSET);
+	ImGui::Text("%zi", node.packet_id);
+	ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_TIME_COLUMN_OFFSET);
+	ImGui::Text("%.3f", node.timestamp);
+	ImGui::SameLine();
+
+	ImGui::SetCursorPosX(PACKET_PROTOCOL_COLUMN_OFFSET);
+	ImGui::Text("%s", protocol.c_str());
+	ImGui::SameLine();
+
+	// If IPv4 layer is present, display the protocol addresses,
+	// rather than raw MAC addresses from the ethernet layer.
+	if (has_ip_layer(node.packet_ref->buffer))
+	{
+		IpHeader* ip_header = get_ip_header(node.packet_ref->buffer);
+
+		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET);
+		ImGui::Text("%s", convert_ip_to_string(ip_header->srcaddr).c_str());
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET);
+		ImGui::Text("%s", convert_ip_to_string(ip_header->destaddr).c_str());
+		ImGui::SameLine();
+	}
+	else
+	{
+		EthHeader* eth_header = get_eth_header(node.packet_ref->buffer);
+
+		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET);
+		ImGui::Text("%s", convert_mac_to_string(eth_header->src).c_str());
+		ImGui::SameLine();
+
+		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET);
+		ImGui::Text("%s", convert_mac_to_string(eth_header->dest).c_str());
+		ImGui::SameLine();
+	}
+
+	ImGui::SetCursorPosX(PACKET_INFO_COLUMN_OFFSET);
 }
 
 static void render_inspector_tree_node_field(
@@ -103,11 +167,11 @@ bool PacketFilterManager::filter_packet(uint8_t* packet, PacketFilterOptions* fi
 	return false;
 }
 
-void TlsPacketRenderer::render_packet_selection_header(uint8_t* packet)
+void TlsPacketRenderer::render_packet_selection_header(PacketNode& node)
 {
-	TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(packet));
-	ImGui::Text("TLS Connection: ");
-	ImGui::SameLine();
+	render_packet_header_basic_fields(node, "TLS");
+
+	TlsHandshake* tls_handshake = get_tls_handshake(get_tls_header(node.packet_ref->buffer));
 	ImGui::Text(extract_tls_connection_server_name(tls_handshake).c_str());
 }
 
@@ -327,13 +391,13 @@ void TlsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 	}
 }
 
-void DnsPacketRenderer::render_packet_selection_header(uint8_t* packet)
+void DnsPacketRenderer::render_packet_selection_header(PacketNode& node)
 {
-	DnsHeader* dns_header = get_dns_header(packet);
+	render_packet_header_basic_fields(node, "DNS");
+
+	DnsHeader* dns_header = get_dns_header(node.packet_ref->buffer);
 	if (ntohs(dns_header->qdcount) == 1)
 	{
-		ImGui::Text("DNS Query: ");
-		ImGui::SameLine();
 		ImGui::Text(extract_dns_query_qname(dns_header).c_str());
 	}
 }
@@ -429,10 +493,14 @@ void DnsPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 	}
 }
 
-void TcpPacketRenderer::render_packet_selection_header(uint8_t* packet)
+void TcpPacketRenderer::render_packet_selection_header(PacketNode& node)
 {
+	uint8_t* packet = node.packet_ref->buffer;
+
 	if (has_client_tls_layer(packet))
-		return TlsPacketRenderer::render_packet_selection_header(packet);
+		return TlsPacketRenderer::render_packet_selection_header(node);
+
+	render_packet_header_basic_fields(node, "TCP");
 
 	TcpHeader* tcp_header = get_tcp_header(packet);
 	ImGui::Text("TCP: %i --> %i", (int)ntohs(tcp_header->src_port), (int)ntohs(tcp_header->dest_port));
@@ -519,10 +587,14 @@ void TcpPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 		return TlsPacketRenderer::render_packet_inspection_tree(packet);
 }
 
-void UdpPacketRenderer::render_packet_selection_header(uint8_t* packet)
+void UdpPacketRenderer::render_packet_selection_header(PacketNode& node)
 {
+	uint8_t* packet = node.packet_ref->buffer;
+
 	if (has_client_dns_layer(packet))
-		return DnsPacketRenderer::render_packet_selection_header(packet);
+		return DnsPacketRenderer::render_packet_selection_header(node);
+
+	render_packet_header_basic_fields(node, "UDP");
 
 	UdpHeader* udp_header = get_udp_header(packet);
 	ImGui::Text("UDP: %i --> %i", (int)ntohs(udp_header->src_port), (int)ntohs(udp_header->dest_port));
@@ -670,10 +742,14 @@ void IpPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 		return UdpPacketRenderer::render_packet_inspection_tree(packet);
 }
 
-void ArpPacketRenderer::render_packet_selection_header(uint8_t* packet)
+void ArpPacketRenderer::render_packet_selection_header(PacketNode& node)
 {
+	render_packet_header_basic_fields(node, "ARP");
+
+	uint8_t* packet = node.packet_ref->buffer;
+
 	ArpPacket* arp_packet = reinterpret_cast<ArpPacket*>(packet);
-	ImGui::Text("ARP %s", (ntohs(arp_packet->opcode) == ARP_REQUEST_OPCODE) ? "Request" : "Reply");
+	ImGui::Text("%s", (ntohs(arp_packet->opcode) == ARP_REQUEST_OPCODE) ? "Request" : "Reply");
 }
 
 void ArpPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
@@ -783,8 +859,10 @@ void ArpPacketRenderer::render_packet_inspection_tree(uint8_t* packet)
 	}
 }
 
-void MainPacketRenderer::render_packet_selection_header(uint8_t* packet, PacketFilterOptions* filters)
+void MainPacketRenderer::render_packet_selection_header(PacketNode& node, PacketFilterOptions* filters)
 {
+	uint8_t* packet = node.packet_ref->buffer;
+
 	// Check if the packet is valid
 	if (!packet) return;
 
@@ -792,27 +870,27 @@ void MainPacketRenderer::render_packet_selection_header(uint8_t* packet, PacketF
 	//
 	// ARP
 	if (filters->arp_filter && has_arp_layer(packet))
-		return ArpPacketRenderer::render_packet_selection_header(packet);
+		return ArpPacketRenderer::render_packet_selection_header(node);
 
 	// Check for Layer 4 filters to pass
 	//
 	// TCP
 	if (filters->tcp_filter && has_tcp_layer(packet))
-		return TcpPacketRenderer::render_packet_selection_header(packet);
+		return TcpPacketRenderer::render_packet_selection_header(node);
 
 	// UDP
 	if (filters->udp_filter && has_udp_layer(packet))
-		return UdpPacketRenderer::render_packet_selection_header(packet);
+		return UdpPacketRenderer::render_packet_selection_header(node);
 
 	// Check for higher layer filters to pass
 	//
 	// TLS
 	if (filters->tls_filter && has_client_tls_layer(packet))
-		return TlsPacketRenderer::render_packet_selection_header(packet);
+		return TlsPacketRenderer::render_packet_selection_header(node);
 
 	// DNS
 	if (filters->dns_filter && has_client_dns_layer(packet))
-		return DnsPacketRenderer::render_packet_selection_header(packet);
+		return DnsPacketRenderer::render_packet_selection_header(node);
 }
 
 void MainPacketRenderer::render_packet_inspection_tree(uint8_t* packet)

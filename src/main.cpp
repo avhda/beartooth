@@ -14,6 +14,7 @@ static IDXGISwapChain*          g_pSwapChain = NULL;
 static ID3D11RenderTargetView*  g_mainRenderTargetView = NULL;
 
 // Forward declarations
+void GetDesktopResolution(int& horizontal, int& vertical);
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
@@ -22,9 +23,14 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 int main(int, char**)
 {
+    int screen_resolution_width = 0, screen_resolution_height = 0;
+    GetDesktopResolution(screen_resolution_width, screen_resolution_height);
+
+    int window_height = (screen_resolution_height > 1080) ? 1080 : 960;
+
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("Beartooth"), NULL };
     ::RegisterClassEx(&wc);
-    HWND hwnd = ::CreateWindow(wc.lpszClassName, _T("Beartooth"), WS_OVERLAPPEDWINDOW, 100, 100, 1560, 960, NULL, NULL, wc.hInstance, NULL);
+    HWND hwnd = ::CreateWindow(wc.lpszClassName, _T("Beartooth"), WS_OVERLAPPEDWINDOW, 100, 100, 1560, window_height, NULL, NULL, wc.hInstance, NULL);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -139,6 +145,19 @@ int main(int, char**)
 }
 
 // Helper functions
+void GetDesktopResolution(int& horizontal, int& vertical)
+{
+    RECT desktop;
+    // Get a handle to the desktop window
+    const HWND hDesktop = GetDesktopWindow();
+    // Get the size of screen to the variable desktop
+    GetWindowRect(hDesktop, &desktop);
+    // The top left corner will have coordinates (0,0)
+    // and the bottom right corner will have coordinates
+    // (horizontal, vertical)
+    horizontal = desktop.right;
+    vertical = desktop.bottom;
+}
 
 bool CreateDeviceD3D(HWND hWnd)
 {
