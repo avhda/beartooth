@@ -7,6 +7,8 @@
 class net_utils
 {
 public:
+	static void close_handles();
+
 	static void print_packet_bytes(const char* title, const uint8_t* data, size_t dataLen, bool format = true);
 	static void print_mac_address(macaddr addr, bool newline = true);
 	
@@ -28,6 +30,10 @@ public:
 	static int recv_packet(PacketHeader* header, void* packet, size_t size);
 
 	static bool send_arp_request(macaddr source_mac, macaddr target_mac_buffer, const char* source_ip, const char* target_ip);
+
+	static void set_packet_dump_path(const std::string& path);
+	static void reopen_dump_file();
+	static void dump_packet_to_file(PacketHeader* header, void* packet);
 };
 
 class network_scanner

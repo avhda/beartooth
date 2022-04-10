@@ -8,9 +8,14 @@
 #define MAIN_LAYOUT_INI_PATH			"config/main_layout.ini"
 #define USER_CUSTOM_UI_LAYOUT_INI_PATH	"config/custom_layout.ini"
 
-#define CONFIG_KEY_IP_FORWARDING		"ip_forwarding"
+// UI
 #define CONFIG_KEY_CUSTOM_USER_LAYOUT	"custom_layout"
 #define CONFIG_KEY_DARK_THEME			"dark_theme"
+
+// Network
+#define CONFIG_KEY_IP_FORWARDING		"ip_forwarding"
+#define CONFIG_KEY_LOG_PACKETS			"log_packets"
+#define CONFIG_KEY_PACKET_LOG_PATH		"log_path"
 
 class ConfigLoader
 {

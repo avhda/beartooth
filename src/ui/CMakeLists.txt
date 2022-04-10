@@ -8,6 +8,7 @@ set(
     ${cwd}/PacketRenderers.h
     ${cwd}/ConfigLoader.h
     ${cwd}/Texture.h
+    ${cwd}/FileDialog.h
 
     PARENT_SCOPE
 )
@@ -19,6 +20,7 @@ set(
     ${cwd}/PacketRenderers.cpp
     ${cwd}/ConfigLoader.cpp
     ${cwd}/Texture.cpp
+    ${cwd}/FileDialog.cpp
 
     PARENT_SCOPE
 )

@@ -1,19 +1,28 @@
 #include "NetUtils.h"
 #include <iostream>
 #include <iomanip>
+#include <filesystem>
 #include <pcap.h>
 #include <iphlpapi.h>
 #pragma comment(lib, "WS2_32")
 #pragma comment(lib, "iphlpapi")
 
-static Adapter	s_adapter = {};
-static pcap_t*	s_pcap_handle = nullptr;
-static char		s_errbuf[PCAP_ERRBUF_SIZE];
+static Adapter					s_adapter					= {};
+static pcap_t*					s_pcap_handle				= nullptr;
+static pcap_dumper_t*			s_pcap_dumper_handle		= nullptr;
+static char						s_errbuf[PCAP_ERRBUF_SIZE];
+static std::string				s_dump_filepath				= "";
 
 std::map<std::string, network_scanner::netscan_node> network_scanner::s_network_scan_map;
 
 #define MAX_ARP_PACKETS_TO_WAIT 32
 #define MAX_ARP_REQUEST_RETRY_COUNT 8
+
+void net_utils::close_handles()
+{
+	if (s_pcap_dumper_handle) pcap_dump_close(s_pcap_dumper_handle);
+	if (s_pcap_handle) pcap_close(s_pcap_handle);
+}
 
 void net_utils::print_packet_bytes(const char* title, const uint8_t* data, size_t dataLen, bool format)
 {
@@ -77,6 +86,8 @@ bool net_utils::set_adapter(const Adapter& adapter)
 		fprintf(stderr, "\nUnable to open the adapter. %s is not supported by WinPcap\n", adapter.name.c_str());
 		return false;
 	}
+
+	reopen_dump_file();
 
 	return true;
 }
@@ -221,6 +232,32 @@ bool net_utils::send_arp_request(macaddr source_mac, macaddr target_mac_buffer, 
 	}
 
 	return true;
+}
+
+void net_utils::set_packet_dump_path(const std::string& path)
+{
+	s_dump_filepath = path;
+}
+
+void net_utils::reopen_dump_file()
+{
+	if (s_pcap_dumper_handle) pcap_dump_close(s_pcap_dumper_handle);
+
+	if (s_pcap_handle && !s_dump_filepath.empty())
+	{
+		s_pcap_dumper_handle = pcap_dump_open(s_pcap_handle, s_dump_filepath.c_str());
+	}
+}
+
+void net_utils::dump_packet_to_file(PacketHeader* header, void* packet)
+{
+	pcap_pkthdr pkt_hdr;
+	pkt_hdr.caplen = header->caplen;
+	pkt_hdr.len = header->len;
+	pkt_hdr.ts.tv_sec = header->timeval_sec;
+	pkt_hdr.ts.tv_usec = header->timeval_usec;
+
+	pcap_dump((u_char*)s_pcap_dumper_handle, &pkt_hdr, (const u_char*)packet);
 }
 
 void network_scanner::scan_network(macaddr source_mac, const std::string& source_ip, const std::string& ip_address_prefix, MacVendorDecoder* vendor_decoder, int range_start, int range_end)

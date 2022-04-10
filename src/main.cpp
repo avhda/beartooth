@@ -143,6 +143,7 @@ int main(int, char**)
     }
 
     // Cleanup
+    net_utils::close_handles();
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

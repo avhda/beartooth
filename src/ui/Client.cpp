@@ -4,6 +4,9 @@
 #include <thread>
 #include <mutex>
 
+// Must be included last
+#include "FileDialog.h"
+
 #define CHECK_TO_BLINK_ELEMENT (fmodf((float)ImGui::GetTime(), 0.80f) < 0.34f)
 #define INTERCEPTED_PACKET_BUFFER_SIZE 2000
 
@@ -24,9 +27,16 @@ void ClientApplication::init()
 	else
 		set_light_theme_colors();
 
-	// Default setup
+	// Default packet setup
 	m_selected_packet = std::make_shared<GenericPacket>();
 	s_intercepted_packets.clear();
+
+	// Setting the dump file path
+	if (m_config.get_bool_value(CONFIG_KEY_LOG_PACKETS))
+	{
+		auto filepath = m_config.get_string_value(CONFIG_KEY_PACKET_LOG_PATH);
+		net_utils::set_packet_dump_path(filepath);
+	}
 
 	// Load network adapters
 	m_adapter_list.find_adapters();
@@ -262,7 +272,7 @@ void ClientApplication::render_settings_window()
 		ImGui::Spacing();
 		ImGui::Spacing();
 
-		ImGui::SetCursorPos(ImVec2(UI_SETTINGS_HEADER_OFFSET - 2.0f, 90.0f));
+		ImGui::SetCursorPos(ImVec2(UI_SETTINGS_HEADER_OFFSET - 2.0f, 100.0f));
 		bool dark_theme_val = m_config.get_bool_value(CONFIG_KEY_DARK_THEME);
 		if (ImGui::BeartoothCustomCheckbox("Dark Theme", &dark_theme_val))
 		{
@@ -273,6 +283,44 @@ void ClientApplication::render_settings_window()
 
 			m_config.write_value(CONFIG_KEY_DARK_THEME, dark_theme_val);
 		}
+
+		ImGui::SetCursorPos(ImVec2(NETWORK_SETTINGS_HEADER_OFFSET - 2.0f, 100.0f));
+		bool should_log_packets = m_config.get_bool_value(CONFIG_KEY_LOG_PACKETS);
+		if (ImGui::BeartoothCustomCheckbox("Log Intercepted Traffic", &should_log_packets))
+		{
+			m_config.write_value(CONFIG_KEY_LOG_PACKETS, should_log_packets);
+		}
+		ImGui::Spacing();
+
+		if (!should_log_packets)
+			ImGui::BeginDisabled();
+
+		auto packet_log_filepath = m_config.get_string_value(CONFIG_KEY_PACKET_LOG_PATH);
+
+		ImGui::SetCursorPos(ImVec2(NETWORK_SETTINGS_HEADER_OFFSET - 2.0f, 130.0f));
+		ImGui::InputText("Log Filepath", &packet_log_filepath[0], packet_log_filepath.size(), ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::SetCursorPos(ImVec2(NETWORK_SETTINGS_HEADER_OFFSET - 2.0f, 160.0f));
+		if (ImGui::Button("Select"))
+		{
+			FileDialogFilter filter;
+			filter.AddFilter(L"Pcap File", L".pcap");
+
+			FileDialog create_file_dialog;
+			create_file_dialog.SetFilter(filter);
+
+			auto new_path = create_file_dialog.CreateFileDialog();
+			
+			if (!new_path.empty())
+			{
+				net_utils::set_packet_dump_path(new_path);
+				net_utils::reopen_dump_file();
+				m_config.write_value(CONFIG_KEY_PACKET_LOG_PATH, new_path);
+			}
+		}
+
+		if (!should_log_packets)
+			ImGui::EndDisabled();
 
 		ImGui::EndPopup();
 	}
@@ -927,6 +975,12 @@ void ClientApplication::start_traffic_interception_loop()
 			// Checking if packet passes any of the filters
 			if (!PacketFilterManager::filter_packet(packet->buffer, &m_filter_options))
 				continue;
+
+			// Dump the packet to a log file if needed
+			if (m_config.get_bool_value(CONFIG_KEY_LOG_PACKETS))
+			{
+				net_utils::dump_packet_to_file(&header, packet->buffer);
+			}
 
 			// Lock the mutex
 			s_packet_interception_mutex.lock();
