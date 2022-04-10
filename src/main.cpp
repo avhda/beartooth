@@ -52,14 +52,23 @@ int main(int, char**)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
-    //
-    // **NOTE***
-    //  Comment out these two lines of code to enable automatic
-    //  saving/loading of .ini file during development to customize
-    //  the main layout.
-    //
-    io.IniFilename = NULL;                                      // Disable automatic loading/saving .ini file
-    ImGui::LoadIniSettingsFromDisk("config/imgui.ini");         // Manually load the "good" docking settings
+    
+    // Soft load the user settings config file and check if custom user layout should be loaded.
+    ConfigLoader soft_loader;
+    soft_loader.read_config();
+    bool should_use_custom_user_layout = soft_loader.get_bool_value(CONFIG_KEY_CUSTOM_USER_LAYOUT);
+
+    if (should_use_custom_user_layout)
+    {
+        // User's custom autosaving layout ini file
+        io.IniFilename = USER_CUSTOM_UI_LAYOUT_INI_PATH;
+    }
+    else
+    {
+        // Manual pre-defined layout ini file
+        io.IniFilename = NULL;                                      // Disable automatic loading/saving .ini file
+        ImGui::LoadIniSettingsFromDisk(MAIN_LAYOUT_INI_PATH);       // Manually load the "good" docking settings
+    }
 
     // Setup ImGui style
     ImGui::StyleColorsDark();

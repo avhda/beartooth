@@ -3,9 +3,13 @@
 #include <map>
 #include <fstream>
 
-#define DEFAULT_USER_SETTINGS_PATH "config/user_settings.cfg"
+#define DEFAULT_USER_SETTINGS_PATH		"config/user_settings.cfg"
 
-#define CONFIG_KEY_IP_FORWARDING "ip_forwarding"
+#define MAIN_LAYOUT_INI_PATH			"config/main_layout.ini"
+#define USER_CUSTOM_UI_LAYOUT_INI_PATH	"config/custom_layout.ini"
+
+#define CONFIG_KEY_IP_FORWARDING		"ip_forwarding"
+#define CONFIG_KEY_CUSTOM_USER_LAYOUT	"custom_layout"
 
 class ConfigLoader
 {

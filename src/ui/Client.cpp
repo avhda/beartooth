@@ -150,21 +150,10 @@ void ClientApplication::render_menu_bar()
 {
 	if (ImGui::BeginMainMenuBar())
 	{
-		if (ImGui::BeginMenu("File"))
+		if (ImGui::BeginMenu("Settings"))
 		{
-			if (ImGui::MenuItem("Settings"))
-			{
-				m_is_settings_window_opened = true;
-				m_display_settings_window = true;
-			}
-
-			ImGui::Separator();
-
-			if (ImGui::MenuItem("Exit"))
-			{
-				
-			}
-
+			m_is_settings_window_opened = true;
+			m_display_settings_window = true;
 			ImGui::EndMenu();
 		}
 
@@ -175,12 +164,42 @@ void ClientApplication::render_menu_bar()
 
 void ClientApplication::render_settings_window()
 {
-	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 500), ImVec2(700, 500));
+	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 500), ImVec2(700, 600));
 	if (ImGui::BeginPopupModal(m_settings_window_id, &m_is_settings_window_opened, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		bool ip_forwarding_val = m_config.get_bool_value(CONFIG_KEY_IP_FORWARDING);
+		const float UI_SETTINGS_HEADER_OFFSET = 40.0f;
+		const float NETWORK_SETTINGS_HEADER_OFFSET = 280.0f;
 
-		if (ImGui::Checkbox("IP Forwarding", &ip_forwarding_val))
+		ImGui::SetCursorPosX(UI_SETTINGS_HEADER_OFFSET);
+		ImGui::Text("%s", "UI"); ImGui::SameLine();
+
+		ImGui::SetCursorPosX(NETWORK_SETTINGS_HEADER_OFFSET);
+		ImGui::Text("%s", "Network");
+
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::SetCursorPos(ImVec2(UI_SETTINGS_HEADER_OFFSET - 2.0f, 60.0f));
+		bool autosave_layout_val = m_config.get_bool_value(CONFIG_KEY_CUSTOM_USER_LAYOUT);
+		if (ImGui::BeartoothCustomCheckbox("Custom User Layout", &autosave_layout_val))
+		{
+			if (autosave_layout_val)
+			{
+				ImGui::LoadIniSettingsFromDisk(USER_CUSTOM_UI_LAYOUT_INI_PATH);
+				ImGui::GetIO().IniFilename = USER_CUSTOM_UI_LAYOUT_INI_PATH;
+			}
+			else
+			{
+				ImGui::GetIO().IniFilename = NULL; // Disable automatic loading/saving .ini file
+				ImGui::LoadIniSettingsFromDisk(MAIN_LAYOUT_INI_PATH);
+			}
+
+			m_config.write_value(CONFIG_KEY_CUSTOM_USER_LAYOUT, autosave_layout_val);
+		}
+
+		ImGui::SetCursorPos(ImVec2(NETWORK_SETTINGS_HEADER_OFFSET - 2.0f, 60.0f));
+		bool ip_forwarding_val = m_config.get_bool_value(CONFIG_KEY_IP_FORWARDING);
+		if (ImGui::BeartoothCustomCheckbox("IP Forwarding", &ip_forwarding_val))
 		{
 			bool value_changed = net_utils::set_system_ip_forwarding(ip_forwarding_val);
 			
