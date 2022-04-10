@@ -1172,7 +1172,7 @@ bool ImGui::BeartoothCustomCheckbox(const char* label, bool* v)
     {
         const float check_sz = ImMin(check_bb.GetWidth(), check_bb.GetHeight());
         const float pad = ImMax(1.0f, (float)(int)(check_sz / 6.0f));
-        window->DrawList->AddRectFilled(check_bb.Min + ImVec2(pad, pad), check_bb.Max - ImVec2(pad, pad), GetColorU32(ImVec4(0.8f, 0.8f, 0.8f, 1.0f)), style.FrameRounding);
+        window->DrawList->AddRectFilled(check_bb.Min + ImVec2(pad, pad), check_bb.Max - ImVec2(pad, pad), GetColorU32(style.Colors[ImGuiCol_CheckMark]), style.FrameRounding);
     }
 
     auto tl = text_bb.GetTL();

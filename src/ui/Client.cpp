@@ -13,8 +13,16 @@ static std::mutex s_filter_options_mutex;
 
 void ClientApplication::init()
 {
-	// Enabling dark theme
-	set_dark_theme_colors();
+	// Load user settings
+	m_config.read_config();
+
+	// Setting the theme
+	bool dark_theme = m_config.get_bool_value(CONFIG_KEY_DARK_THEME);
+	
+	if (dark_theme)
+		set_dark_theme_colors();
+	else
+		set_light_theme_colors();
 
 	// Default setup
 	m_selected_packet = std::make_shared<GenericPacket>();
@@ -25,9 +33,6 @@ void ClientApplication::init()
 
 	// Load the MAC vendor database
 	m_vendor_decoder.load_vendor_list();
-
-	// Load user settings
-	m_config.read_config();
 
 	// Apply initial user settings
 	apply_user_settings();
@@ -107,6 +112,12 @@ void ClientApplication::set_dark_theme_colors()
 {
 	auto& colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_WindowBg] = ImVec4{ 0.1f, 0.105f, 0.11f, 1.0f };
+	colors[ImGuiCol_ChildBg] = ImVec4{ 0.1f, 0.105f, 0.11f, 1.0f };
+	colors[ImGuiCol_PopupBg] = ImVec4{ 0.1f, 0.105f, 0.11f, 1.0f };
+	colors[ImGuiCol_ModalWindowDimBg] = ImVec4{ 0.5f, 0.505f, 0.51f, 0.5f };
+	colors[ImGuiCol_Text] = ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f };
+	colors[ImGuiCol_MenuBarBg] = ImVec4{ 0.1f, 0.105f, 0.11f, 1.0f };
+	colors[ImGuiCol_CheckMark] = ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f };
 
 	// Headers
 	colors[ImGuiCol_Header] = ImVec4{ 0.2f, 0.205f, 0.21f, 1.0f };
@@ -134,6 +145,47 @@ void ClientApplication::set_dark_theme_colors()
 	colors[ImGuiCol_TitleBg] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgActive] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 	colors[ImGuiCol_TitleBgCollapsed] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
+
+	
+}
+
+void ClientApplication::set_light_theme_colors()
+{
+	auto& colors = ImGui::GetStyle().Colors;
+	colors[ImGuiCol_WindowBg] = ImVec4{ 0.9f, 0.905f, 0.91f, 1.0f };
+	colors[ImGuiCol_ChildBg] = ImVec4{ 0.9f, 0.905f, 0.91f, 1.0f };
+	colors[ImGuiCol_PopupBg] = ImVec4{ 0.85f, 0.86f, 0.868f, 1.0f };
+	colors[ImGuiCol_ModalWindowDimBg] = ImVec4{ 0.5f, 0.505f, 0.51f, 0.5f };
+	colors[ImGuiCol_Text] = ImVec4{ 0.0f, 0.0f, 0.0f, 1.0f };
+	colors[ImGuiCol_MenuBarBg] = ImVec4{ 0.8f, 0.805f, 0.81f, 1.0f };
+	colors[ImGuiCol_CheckMark] = ImVec4{ 0, 0, 0, 1.0f };
+
+	// Headers
+	colors[ImGuiCol_Header] = ImVec4{ 0.8f, 0.805f, 0.81f, 1.0f };
+	colors[ImGuiCol_HeaderHovered] = ImVec4{ 0.7f, 0.705f, 0.71f, 1.0f };
+	colors[ImGuiCol_HeaderActive] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+
+	// Buttons
+	colors[ImGuiCol_Button] = ImVec4{ 0.8f, 0.805f, 0.81f, 1.0f };
+	colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.7f, 0.705f, 0.71f, 1.0f };
+	colors[ImGuiCol_ButtonActive] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+
+	// Frame BG
+	colors[ImGuiCol_FrameBg] = ImVec4{ 0.8f, 0.805f, 0.81f, 1.0f };
+	colors[ImGuiCol_FrameBgHovered] = ImVec4{ 0.7f, 0.705f, 0.71f, 1.0f };
+	colors[ImGuiCol_FrameBgActive] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+
+	// Tabs
+	colors[ImGuiCol_Tab] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+	colors[ImGuiCol_TabHovered] = ImVec4{ 0.62f, 0.6205f, 0.621f, 1.0f };
+	colors[ImGuiCol_TabActive] = ImVec4{ 0.72f, 0.7205f, 0.721f, 1.0f };
+	colors[ImGuiCol_TabUnfocused] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+	colors[ImGuiCol_TabUnfocusedActive] = ImVec4{ 0.8f, 0.805f, 0.81f, 1.0f };
+
+	// Title
+	colors[ImGuiCol_TitleBg] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+	colors[ImGuiCol_TitleBgActive] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
+	colors[ImGuiCol_TitleBgCollapsed] = ImVec4{ 0.85f, 0.8505f, 0.851f, 1.0f };
 }
 
 void ClientApplication::load_textures()
@@ -205,6 +257,21 @@ void ClientApplication::render_settings_window()
 			
 			if (value_changed)
 				m_config.write_value(CONFIG_KEY_IP_FORWARDING, ip_forwarding_val);
+		}
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+
+		ImGui::SetCursorPos(ImVec2(UI_SETTINGS_HEADER_OFFSET - 2.0f, 90.0f));
+		bool dark_theme_val = m_config.get_bool_value(CONFIG_KEY_DARK_THEME);
+		if (ImGui::BeartoothCustomCheckbox("Dark Theme", &dark_theme_val))
+		{
+			if (dark_theme_val)
+				set_dark_theme_colors();
+			else
+				set_light_theme_colors();
+
+			m_config.write_value(CONFIG_KEY_DARK_THEME, dark_theme_val);
 		}
 
 		ImGui::EndPopup();

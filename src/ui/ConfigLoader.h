@@ -10,6 +10,7 @@
 
 #define CONFIG_KEY_IP_FORWARDING		"ip_forwarding"
 #define CONFIG_KEY_CUSTOM_USER_LAYOUT	"custom_layout"
+#define CONFIG_KEY_DARK_THEME			"dark_theme"
 
 class ConfigLoader
 {

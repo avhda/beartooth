@@ -13,6 +13,7 @@ public:
 
 private:
 	void set_dark_theme_colors();
+	void set_light_theme_colors();
 	void load_textures();
 	
 	void render_menu_bar();
