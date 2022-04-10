@@ -4,6 +4,8 @@
 #include <map>
 #include <algorithm>
 
+#define PACKET_CHILD_REGION_CORRECTION_OFFSET 8.0f
+
 static std::string convert_ip_to_string(uint32_t ip)
 {
 	struct sockaddr_in sa;
@@ -58,15 +60,15 @@ static std::string binary_to_hex_string(
 
 static void render_packet_header_basic_fields(PacketNode& node, const std::string& protocol)
 {
-	ImGui::SetCursorPosX(PACKET_ID_COLUMN_OFFSET);
+	ImGui::SetCursorPosX(PACKET_ID_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET - 2.0f);
 	ImGui::Text("%zi", node.packet_id);
 	ImGui::SameLine();
 
-	ImGui::SetCursorPosX(PACKET_TIME_COLUMN_OFFSET);
+	ImGui::SetCursorPosX(PACKET_TIME_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 	ImGui::Text("%.3f", node.timestamp);
 	ImGui::SameLine();
 
-	ImGui::SetCursorPosX(PACKET_PROTOCOL_COLUMN_OFFSET);
+	ImGui::SetCursorPosX(PACKET_PROTOCOL_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 	ImGui::Text("%s", protocol.c_str());
 	ImGui::SameLine();
 
@@ -76,11 +78,11 @@ static void render_packet_header_basic_fields(PacketNode& node, const std::strin
 	{
 		IpHeader* ip_header = get_ip_header(node.packet_ref->buffer);
 
-		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET);
+		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 		ImGui::Text("%s", convert_ip_to_string(ip_header->srcaddr).c_str());
 		ImGui::SameLine();
 
-		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET);
+		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 		ImGui::Text("%s", convert_ip_to_string(ip_header->destaddr).c_str());
 		ImGui::SameLine();
 	}
@@ -88,16 +90,16 @@ static void render_packet_header_basic_fields(PacketNode& node, const std::strin
 	{
 		EthHeader* eth_header = get_eth_header(node.packet_ref->buffer);
 
-		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET);
+		ImGui::SetCursorPosX(PACKET_SOURCE_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 		ImGui::Text("%s", convert_mac_to_string(eth_header->src).c_str());
 		ImGui::SameLine();
 
-		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET);
+		ImGui::SetCursorPosX(PACKET_DESTINATION_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 		ImGui::Text("%s", convert_mac_to_string(eth_header->dest).c_str());
 		ImGui::SameLine();
 	}
 
-	ImGui::SetCursorPosX(PACKET_INFO_COLUMN_OFFSET);
+	ImGui::SetCursorPosX(PACKET_INFO_COLUMN_OFFSET - PACKET_CHILD_REGION_CORRECTION_OFFSET);
 }
 
 static void render_inspector_tree_node_field(

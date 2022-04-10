@@ -85,6 +85,10 @@ private:
 	const char* m_settings_window_id		= "Settings window";
 
 private:
+	Texture m_hacker_texture;
+	Texture m_healthy_computer_texture;
+	Texture m_poisoned_computer_texture;
+
 	Texture m_pause_capture_texture;
 	Texture m_resume_capture_texture;
 };

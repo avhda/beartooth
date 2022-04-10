@@ -138,6 +138,10 @@ void ClientApplication::set_dark_theme_colors()
 
 void ClientApplication::load_textures()
 {
+	m_hacker_texture.load_from_file("config/icons/hacker.png");
+	m_healthy_computer_texture.load_from_file("config/icons/healthy_computer.png");
+	m_poisoned_computer_texture.load_from_file("config/icons/poisoned_computer.png");
+
 	m_pause_capture_texture.load_from_file("config/icons/pause.png");
 	m_resume_capture_texture.load_from_file("config/icons/play.png");
 }
@@ -240,12 +244,14 @@ void ClientApplication::render_adapters_list()
 
 void ClientApplication::render_mitm_attack_data()
 {
-	ImGui::SetNextWindowSize(ImVec2(300, 240));
-	ImGui::Begin("MITM Data", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(300, 300), ImVec2(600, 3600));
+	ImGui::Begin("MITM Data");
+
+	const float icon_size = 20.0f;
 
 	// Display Local Data
 	ImGui::SetNextItemOpen(m_mitm_local_data_opened_flag);
-	m_mitm_local_data_opened_flag = ImGui::TreeNode("Local Info");
+	m_mitm_local_data_opened_flag = ImGui::TreeNodeEx("Local Info", ImGuiTreeNodeFlags_SpanAvailWidth);
 	if (m_mitm_local_data_opened_flag)
 	{
 		constexpr float indent_w = 16.0f;
@@ -262,6 +268,9 @@ void ClientApplication::render_mitm_attack_data()
 			m_mitm_data.local_mac_address[5]
 		);
 
+		ImGui::SameLine();
+		ImGui::Image((void*)m_hacker_texture.get_resource_handle(), ImVec2(icon_size, icon_size));
+
 		ImGui::Text("IPv4: %s", m_mitm_data.local_ip.c_str());
 
 		ImGui::TreePop();
@@ -273,7 +282,7 @@ void ClientApplication::render_mitm_attack_data()
 
 	// Display Target Data
 	ImGui::SetNextItemOpen(m_mitm_target_data_opened_flag);
-	m_mitm_target_data_opened_flag = ImGui::TreeNode("Target");
+	m_mitm_target_data_opened_flag = ImGui::TreeNodeEx("Target", ImGuiTreeNodeFlags_SpanAvailWidth);
 	if (m_mitm_target_data_opened_flag)
 	{
 		constexpr float indent_w = 16.0f;
@@ -291,6 +300,12 @@ void ClientApplication::render_mitm_attack_data()
 				m_mitm_data.target_mac_address[4],
 				m_mitm_data.target_mac_address[5]
 			);
+			ImGui::SameLine();
+
+			if (m_mitm_data.attack_in_progress)
+				ImGui::Image((void*)m_poisoned_computer_texture.get_resource_handle(), ImVec2(icon_size, icon_size));
+			else
+				ImGui::Image((void*)m_healthy_computer_texture.get_resource_handle(), ImVec2(icon_size, icon_size));
 
 			ImGui::Text("IPv4: %s", m_mitm_data.target_ip.c_str());
 			ImGui::Text((!m_mitm_data.attack_in_progress) ? "ARP Table: Real" : "ARP Table: Spoofed");
@@ -320,7 +335,7 @@ void ClientApplication::render_mitm_attack_data()
 
 	// Display Gateway Data
 	ImGui::SetNextItemOpen(m_mitm_gateway_data_opened_flag);
-	m_mitm_gateway_data_opened_flag = ImGui::TreeNode("Gateway");
+	m_mitm_gateway_data_opened_flag = ImGui::TreeNodeEx("Gateway", ImGuiTreeNodeFlags_SpanAvailWidth);
 	if (m_mitm_gateway_data_opened_flag)
 	{
 		constexpr float indent_w = 16.0f;
@@ -338,6 +353,12 @@ void ClientApplication::render_mitm_attack_data()
 				m_mitm_data.gateway_mac_address[4],
 				m_mitm_data.gateway_mac_address[5]
 			);
+			ImGui::SameLine();
+
+			if (m_mitm_data.attack_in_progress)
+				ImGui::Image((void*)m_poisoned_computer_texture.get_resource_handle(), ImVec2(icon_size, icon_size));
+			else
+				ImGui::Image((void*)m_healthy_computer_texture.get_resource_handle(), ImVec2(icon_size, icon_size));
 
 			ImGui::Text("IPv4: %s", m_mitm_data.gateway_ip.c_str());
 			ImGui::Text((!m_mitm_data.attack_in_progress) ? "ARP Table: Real" : "ARP Table: Spoofed");
@@ -576,6 +597,7 @@ void ClientApplication::render_intercepted_traffic_window()
 	// Render the actual intercepted traffic (list of packets)
 	ImGui::Separator();
 	ImGui::Spacing();
+	ImGui::BeginChild("PacketRegion");
 
 	if (!m_mitm_data.attack_in_progress || m_mitm_data.rearping_in_progress)
 	{
@@ -641,6 +663,7 @@ void ClientApplication::render_intercepted_traffic_window()
 		}
 	}
 
+	ImGui::EndChild();
 	ImGui::End();
 }
 
@@ -650,19 +673,19 @@ void ClientApplication::render_packet_filters_window()
 	ImGui::Begin("Packet Filters");
 
 	ImGui::SetCursorPos(ImVec2(40.0f, ImGui::GetWindowHeight() / 2.0f));
-	ImGui::Checkbox("DNS", &m_filter_options.dns_filter);
+	ImGui::BeartoothCustomCheckbox("DNS", &m_filter_options.dns_filter);
 	
 	ImGui::SameLine(); ImGui::SetCursorPosX(120.0f);
-	ImGui::Checkbox("TLS", &m_filter_options.tls_filter);
+	ImGui::BeartoothCustomCheckbox("TLS", &m_filter_options.tls_filter);
 
 	ImGui::SameLine(); ImGui::SetCursorPosX(200.0f);
-	ImGui::Checkbox("TCP", &m_filter_options.tcp_filter);
+	ImGui::BeartoothCustomCheckbox("TCP", &m_filter_options.tcp_filter);
 
 	ImGui::SameLine(); ImGui::SetCursorPosX(280.0f);
-	ImGui::Checkbox("UDP", &m_filter_options.udp_filter);
+	ImGui::BeartoothCustomCheckbox("UDP", &m_filter_options.udp_filter);
 
 	ImGui::SameLine(); ImGui::SetCursorPosX(360.0f);
-	ImGui::Checkbox("ARP", &m_filter_options.arp_filter);
+	ImGui::BeartoothCustomCheckbox("ARP", &m_filter_options.arp_filter);
 	
 	ImGui::End();
 }
