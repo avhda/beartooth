@@ -309,6 +309,7 @@ void ClientApplication::render_mitm_attack_data()
 
 			ImGui::Text("IPv4: %s", m_mitm_data.target_ip.c_str());
 			ImGui::Text((!m_mitm_data.attack_in_progress) ? "ARP Table: Real" : "ARP Table: Spoofed");
+			ImGui::Spacing();
 		}
 		else
 		{
@@ -318,7 +319,7 @@ void ClientApplication::render_mitm_attack_data()
 
 		if (!m_mitm_data.attack_in_progress)
 		{
-			bool select_clicked = ImGui::Button("Select");
+			bool select_clicked = ImGui::Button("Select", ImVec2(110, 24));
 			if (select_clicked)
 			{
 				m_display_select_target_window = true;
@@ -362,6 +363,7 @@ void ClientApplication::render_mitm_attack_data()
 
 			ImGui::Text("IPv4: %s", m_mitm_data.gateway_ip.c_str());
 			ImGui::Text((!m_mitm_data.attack_in_progress) ? "ARP Table: Real" : "ARP Table: Spoofed");
+			ImGui::Spacing();
 		}
 		else
 		{
@@ -371,7 +373,7 @@ void ClientApplication::render_mitm_attack_data()
 
 		if (!m_mitm_data.attack_in_progress)
 		{
-			bool select_clicked = ImGui::Button("Select");
+			bool select_clicked = ImGui::Button("Select", ImVec2(110, 24));
 			if (select_clicked)
 			{
 				m_display_select_gateway_window = true;
