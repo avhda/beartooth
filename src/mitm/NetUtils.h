@@ -52,3 +52,16 @@ public:
 	// ipv4 -> { is_online, mac_address }
 	static std::map<std::string, netscan_node> s_network_scan_map;
 };
+
+struct PortScanNode
+{
+	uint16_t	port = 0;
+	std::string protocol = "TCP";
+	bool		is_opened = false;
+};
+
+class port_scanner
+{
+public:
+	static void scan_target(const std::string& target_ip, std::vector<PortScanNode>& scanned_nodes, uint16_t start_port = 0, uint16_t end_port = 65535);
+};

@@ -20,14 +20,17 @@ private:
 	void render_settings_window();
 
 	void render_adapters_list();
-	void render_mitm_attack_data();
+	void render_attack_window();
+	void render_arp_poisoning_attack_data();
+	void render_port_scanning_attack_data();
 
-	void render_target_selection_window();
-	void render_gateway_selection_window();
+	void render_mitm_target_selection_window();
+	void render_portscan_target_selection_window();
+	void render_mitm_gateway_selection_window();
 	void render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer);
 
 	void render_intercepted_traffic_window();
-	void render_packet_filters_window();
+	void render_portscan_results_window();
 	void render_packet_inspection_window();
 	void render_independent_inspection_windows();
 
@@ -44,6 +47,14 @@ private:
 	Adapter				m_selected_adapter;
 	PacketFilterOptions m_filter_options;
 	MacVendorDecoder	m_vendor_decoder;
+
+	enum class AttackType_
+	{
+		ArpPoisoning,
+		PortScanning
+	};
+
+	AttackType_ m_attack_type = AttackType_::ArpPoisoning;
 
 	struct MITM_data
 	{
@@ -62,6 +73,16 @@ private:
 
 	MITM_data m_mitm_data;
 
+	struct PORTSCAN_data
+	{
+		macaddr						target_mac_address;
+		std::string					target_ip;
+		bool						attack_in_progress = false;
+		std::vector<PortScanNode>	scanned_nodes;
+	};
+
+	PORTSCAN_data m_portscan_data;
+
 	// Used in packet inspection window
 	uint64_t m_selected_packet_id = 0;
 	GenericPacketRef m_selected_packet = nullptr;
@@ -75,15 +96,19 @@ private:
 	bool m_mitm_target_data_opened_flag = true;
 	bool m_mitm_gateway_data_opened_flag = true;
 
-	bool m_display_select_target_window = false;
-	bool m_display_select_gateway_window = false;
+	bool m_portscan_target_data_opened_flag = true;
+	bool m_display_select_portscan_target_window = false;
+
+	bool m_display_select_mitm_target_window = false;
+	bool m_display_select_mitm_gateway_window = false;
 	bool m_is_host_selection_window_opened = false;
 	
 	bool m_scanning_network = false;
 
-	const char* m_select_target_window_id	= "Select target host";
-	const char* m_select_gateway_window_id	= "Select gateway host";
-	const char* m_settings_window_id		= "Settings window";
+	const char* m_select_mitm_target_window_id			= "Select target host";
+	const char* m_select_portscan_target_window_id		= "Select target host##portscan";
+	const char* m_select_mitm_gateway_window_id			= "Select gateway host";
+	const char* m_settings_window_id					= "Settings window";
 
 private:
 	Texture m_hacker_texture;

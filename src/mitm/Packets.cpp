@@ -55,6 +55,21 @@ void craft_arp_reply_packet(ArpPacket* packet, macaddr source_mac, macaddr dest_
 	craft_arp_reply_packet(packet, source_mac, dest_mac, src_ip, dst_ip);
 }
 
+void craft_eth_header(uint8_t* packet, macaddr src_mac, macaddr dest_mac, int protocol)
+{
+	EthHeader* eth_header = get_eth_header(packet);
+
+	// Ethernet Layer
+	memcpy(eth_header->src, src_mac, MACADDR_LEN);
+	memcpy(eth_header->dest, dest_mac, MACADDR_LEN);
+	eth_header->protocol = htons(static_cast<uint16_t>(protocol));
+}
+
+void craft_ip_header(uint8_t* packet, const char* src_ip, const char* dest_ip)
+{
+}
+
+
 EthHeader* get_eth_header(uint8_t* packet)
 {
 	return reinterpret_cast<EthHeader*>(packet);

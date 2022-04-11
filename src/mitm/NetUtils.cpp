@@ -375,3 +375,10 @@ void network_scanner::scan_network(macaddr source_mac, const std::string& source
 			break;
 	}
 }
+
+void port_scanner::scan_target(const std::string& target_ip, std::vector<PortScanNode>& scanned_nodes, uint16_t start_port, uint16_t end_port)
+{
+	const uint32_t target_ip_addr = inet_addr(target_ip.c_str());
+
+
+}

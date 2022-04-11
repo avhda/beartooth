@@ -83,32 +83,43 @@ void ClientApplication::render()
 	}
 
 	// At this point, a specific adapter has been selected.
-	// First, render the local network info and MITM attack data.
-	render_mitm_attack_data();
+	// First, render the local network info and attack data.
+	render_attack_window();
 
 	// If the user needs to select the target,
 	// display the target selection window.
-	if (m_display_select_target_window)
+	if (m_display_select_mitm_target_window)
 	{
-		ImGui::OpenPopup(m_select_target_window_id);
-		m_display_select_target_window = false;
+		ImGui::OpenPopup(m_select_mitm_target_window_id);
+		m_display_select_mitm_target_window = false;
 	}
-	render_target_selection_window();
+	render_mitm_target_selection_window();
 
 	// If the user needs to select the gateway,
 	// display the target selection window.
-	if (m_display_select_gateway_window)
+	if (m_display_select_mitm_gateway_window)
 	{
-		ImGui::OpenPopup(m_select_gateway_window_id);
-		m_display_select_gateway_window = false;
+		ImGui::OpenPopup(m_select_mitm_gateway_window_id);
+		m_display_select_mitm_gateway_window = false;
 	}
-	render_gateway_selection_window();
+	render_mitm_gateway_selection_window();
 
-	// Render the intercepted traffic window
-	render_intercepted_traffic_window();
+	// If the user needs to select the target for port scanning,
+	// display the target selection window.
+	if (m_display_select_portscan_target_window)
+	{
+		ImGui::OpenPopup(m_select_portscan_target_window_id);
+		m_display_select_portscan_target_window = false;
+	}
+	render_portscan_target_selection_window();
 
-	// Render filtering options
-	render_packet_filters_window();
+	// Render the appropriate attack window
+	switch (m_attack_type)
+	{
+	case AttackType_::ArpPoisoning: { render_intercepted_traffic_window(); break; }
+	case AttackType_::PortScanning: { render_portscan_results_window(); break; }
+	default: break;
+	}
 
 	// Render packet inspection window
 	render_packet_inspection_window();
@@ -301,7 +312,7 @@ void ClientApplication::render_settings_window()
 		ImGui::InputText("Log Filepath", &packet_log_filepath[0], packet_log_filepath.size(), ImGuiInputTextFlags_ReadOnly);
 
 		ImGui::SetCursorPos(ImVec2(NETWORK_SETTINGS_HEADER_OFFSET - 2.0f, 160.0f));
-		if (ImGui::Button("Select"))
+		if (ImGui::Button("Select##PcapLogFile"))
 		{
 			FileDialogFilter filter;
 			filter.AddFilter(L"Pcap File", L".pcap");
@@ -351,7 +362,7 @@ void ClientApplication::render_adapters_list()
 			ImGui::Text("Netmask: %s", adapter.netmask.to_string().c_str());
 			ImGui::Text("Broadcast: %s", adapter.broadcast.to_string().c_str());
 
-			bool b_selected = ImGui::Button("Select");
+			bool b_selected = ImGui::Button("Select##Adapter");
 			if (b_selected)
 			{
 				// Set the selected adapter
@@ -376,11 +387,41 @@ void ClientApplication::render_adapters_list()
 	ImGui::End();
 }
 
-void ClientApplication::render_mitm_attack_data()
+void ClientApplication::render_attack_window()
 {
 	ImGui::SetNextWindowSizeConstraints(ImVec2(300, 300), ImVec2(600, 3600));
-	ImGui::Begin("MITM Data");
+	ImGui::Begin("Attack Types");
 
+	if (ImGui::BeginTabBar("AttackTypes"))
+	{
+		if (ImGui::BeginTabItem("ARP Poisoning"))
+		{
+			ImGui::Spacing();
+
+			m_attack_type = AttackType_::ArpPoisoning;
+			render_arp_poisoning_attack_data();
+			
+			ImGui::EndTabItem();
+		}
+
+		if (ImGui::BeginTabItem("Port Scanning"))
+		{
+			ImGui::Spacing();
+
+			m_attack_type = AttackType_::PortScanning;
+			render_port_scanning_attack_data();
+
+			ImGui::EndTabItem();
+		}
+
+		ImGui::EndTabBar();
+	}
+
+	ImGui::End();
+}
+
+void ClientApplication::render_arp_poisoning_attack_data()
+{
 	const float icon_size = 20.0f;
 
 	// Display Local Data
@@ -453,10 +494,10 @@ void ClientApplication::render_mitm_attack_data()
 
 		if (!m_mitm_data.attack_in_progress)
 		{
-			bool select_clicked = ImGui::Button("Select", ImVec2(110, 24));
+			bool select_clicked = ImGui::Button("Select##ArpPoisonTarget", ImVec2(110, 24));
 			if (select_clicked)
 			{
-				m_display_select_target_window = true;
+				m_display_select_mitm_target_window = true;
 				m_is_host_selection_window_opened = true;
 			}
 		}
@@ -507,10 +548,10 @@ void ClientApplication::render_mitm_attack_data()
 
 		if (!m_mitm_data.attack_in_progress)
 		{
-			bool select_clicked = ImGui::Button("Select", ImVec2(110, 24));
+			bool select_clicked = ImGui::Button("Select##ArpPoisonGateway", ImVec2(110, 24));
 			if (select_clicked)
 			{
-				m_display_select_gateway_window = true;
+				m_display_select_mitm_gateway_window = true;
 				m_is_host_selection_window_opened = true;
 			}
 		}
@@ -520,7 +561,7 @@ void ClientApplication::render_mitm_attack_data()
 		ImGui::Unindent(indent_w);
 	}
 	ImGui::Spacing();
-	
+
 	if (!m_mitm_data.target_ip.empty() &&
 		!m_mitm_data.gateway_ip.empty())
 	{
@@ -528,7 +569,7 @@ void ClientApplication::render_mitm_attack_data()
 		for (size_t i = 0; i < 5; ++i) { ImGui::Spacing(); }
 
 		ImGui::SetCursorPosX(ImGui::GetWindowSize().x / 2.0f - 55.0f);
-		
+
 		if (!m_mitm_data.attack_in_progress)
 		{
 			if (ImGui::Button("Initiate Attack", ImVec2(110, 25)))
@@ -555,18 +596,98 @@ void ClientApplication::render_mitm_attack_data()
 			}
 		}
 	}
-
-	ImGui::End();
 }
 
-void ClientApplication::render_target_selection_window()
+void ClientApplication::render_port_scanning_attack_data()
 {
-	render_generic_host_selection_window(m_select_target_window_id, m_mitm_data.target_ip, m_mitm_data.target_mac_address);
+	// Display Target Data
+	ImGui::SetNextItemOpen(m_portscan_target_data_opened_flag);
+	m_portscan_target_data_opened_flag = ImGui::TreeNodeEx("Target", ImGuiTreeNodeFlags_SpanAvailWidth);
+	if (m_portscan_target_data_opened_flag)
+	{
+		constexpr float indent_w = 16.0f;
+
+		ImGui::Spacing();
+		ImGui::Indent(indent_w);
+
+		if (!m_portscan_data.target_ip.empty())
+		{
+			ImGui::Text("MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+				m_portscan_data.target_mac_address[0],
+				m_portscan_data.target_mac_address[1],
+				m_portscan_data.target_mac_address[2],
+				m_portscan_data.target_mac_address[3],
+				m_portscan_data.target_mac_address[4],
+				m_portscan_data.target_mac_address[5]
+			);
+
+			ImGui::Text("IPv4: %s", m_portscan_data.target_ip.c_str());
+			ImGui::Spacing();
+		}
+		else
+		{
+			ImGui::Text("Target not selected");
+			ImGui::SameLine();
+		}
+
+		if (!m_portscan_data.attack_in_progress)
+		{
+			bool select_clicked = ImGui::Button("Select##PortScanTarget", ImVec2(110, 24));
+			if (select_clicked)
+			{
+				m_display_select_portscan_target_window = true;
+				m_is_host_selection_window_opened = true;
+			}
+		}
+
+		ImGui::TreePop();
+		ImGui::Spacing();
+		ImGui::Unindent(indent_w);
+	}
+
+	if (!m_portscan_data.target_ip.empty())
+	{
+		ImGui::Separator();
+		for (size_t i = 0; i < 5; ++i) { ImGui::Spacing(); }
+
+		ImGui::SetCursorPosX(ImGui::GetWindowSize().x / 2.0f - 55.0f);
+
+		if (!m_portscan_data.attack_in_progress)
+		{
+			if (ImGui::Button("Start Scanning", ImVec2(110, 25)))
+			{
+				m_portscan_data.attack_in_progress = true;
+
+				// ====== TESTING PORT SCANNING FUNCTIONALITY ====== //
+				MessageBoxA(0, 0, 0, 0);
+			}
+		}
+		else
+		{
+			if (ImGui::Button("Stop Scan", ImVec2(110, 25)))
+			{
+				m_portscan_data.attack_in_progress = false;
+			}
+		}
+	}
+
+	ImGui::Spacing();
+	ImGui::Separator();
 }
 
-void ClientApplication::render_gateway_selection_window()
+void ClientApplication::render_mitm_target_selection_window()
 {
-	render_generic_host_selection_window(m_select_gateway_window_id, m_mitm_data.gateway_ip, m_mitm_data.gateway_mac_address);
+	render_generic_host_selection_window(m_select_mitm_target_window_id, m_mitm_data.target_ip, m_mitm_data.target_mac_address);
+}
+
+void ClientApplication::render_portscan_target_selection_window()
+{
+	render_generic_host_selection_window(m_select_portscan_target_window_id, m_portscan_data.target_ip, m_portscan_data.target_mac_address);
+}
+
+void ClientApplication::render_mitm_gateway_selection_window()
+{
+	render_generic_host_selection_window(m_select_mitm_gateway_window_id, m_mitm_data.gateway_ip, m_mitm_data.gateway_mac_address);
 }
 
 void ClientApplication::render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer)
@@ -628,7 +749,7 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 		{
 			if (ImGui::Selectable(("##host" + ip).c_str()))
 			{
-				ip_buffer = ip.c_str();
+				ip_buffer = ip;
 				memcpy(mac_buffer, node.physical_address, sizeof(macaddr));
 			}
 
@@ -662,6 +783,27 @@ void ClientApplication::render_intercepted_traffic_window()
 {
 	ImGui::SetNextWindowSizeConstraints(ImVec2(1000, 400), ImVec2(10000, 10000));
 	ImGui::Begin("Intercepted Traffic");
+
+	// Packet filters
+	ImGui::Text("Packet Filters");
+
+	ImGui::SetCursorPosX(40.0f);
+	ImGui::BeartoothCustomCheckbox("DNS", &m_filter_options.dns_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(120.0f);
+	ImGui::BeartoothCustomCheckbox("TLS", &m_filter_options.tls_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(200.0f);
+	ImGui::BeartoothCustomCheckbox("TCP", &m_filter_options.tcp_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(280.0f);
+	ImGui::BeartoothCustomCheckbox("UDP", &m_filter_options.udp_filter);
+
+	ImGui::SameLine(); ImGui::SetCursorPosX(360.0f);
+	ImGui::BeartoothCustomCheckbox("ARP", &m_filter_options.arp_filter);
+
+	ImGui::Spacing();
+	ImGui::Spacing();
 
 	// Render packet information categories
 	ImGui::Spacing();
@@ -803,26 +945,46 @@ void ClientApplication::render_intercepted_traffic_window()
 	ImGui::End();
 }
 
-void ClientApplication::render_packet_filters_window()
+void ClientApplication::render_portscan_results_window()
 {
-	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 100), ImVec2(1200, 120));
-	ImGui::Begin("Packet Filters");
+	ImGui::SetNextWindowSizeConstraints(ImVec2(600, 400), ImVec2(10000, 10000));
+	ImGui::Begin("Port Scanning Results");
 
-	ImGui::SetCursorPos(ImVec2(40.0f, ImGui::GetWindowHeight() / 2.0f));
-	ImGui::BeartoothCustomCheckbox("DNS", &m_filter_options.dns_filter);
-	
-	ImGui::SameLine(); ImGui::SetCursorPosX(120.0f);
-	ImGui::BeartoothCustomCheckbox("TLS", &m_filter_options.tls_filter);
+	// Render information categories
+	ImGui::Spacing();
 
-	ImGui::SameLine(); ImGui::SetCursorPosX(200.0f);
-	ImGui::BeartoothCustomCheckbox("TCP", &m_filter_options.tcp_filter);
+	ImGui::SetCursorPosX(18);
+	ImGui::Text("%s", "Port"); ImGui::SameLine();
 
-	ImGui::SameLine(); ImGui::SetCursorPosX(280.0f);
-	ImGui::BeartoothCustomCheckbox("UDP", &m_filter_options.udp_filter);
+	ImGui::SetCursorPosX(108);
+	ImGui::Text("%s", "Protocol Tried"); ImGui::SameLine();
 
-	ImGui::SameLine(); ImGui::SetCursorPosX(360.0f);
-	ImGui::BeartoothCustomCheckbox("ARP", &m_filter_options.arp_filter);
-	
+	ImGui::SetCursorPosX(268);
+	ImGui::Text("%s", "State"); ImGui::SameLine();
+
+	ImGui::SetCursorPosX(408);
+	ImGui::Text("%s", "Service Name /  Description");
+
+	// Render the actual port list
+	ImGui::Separator();
+	ImGui::Spacing();
+	ImGui::Spacing();
+
+	ImGui::BeginChild("PortRegion");
+
+	if (!m_portscan_data.scanned_nodes.size())
+	{
+		auto middle_x = ImGui::GetWindowSize().x / 2.0f - 60.0f;
+		auto middle_y = ImGui::GetWindowSize().y / 2.0f - 8.0f;
+		ImGui::SetCursorPos(ImVec2(middle_x, middle_y));
+		ImGui::Text("Ports Scanned: 0");
+	}
+	else
+	{
+
+	}
+
+	ImGui::EndChild();
 	ImGui::End();
 }
 

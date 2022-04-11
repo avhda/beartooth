@@ -218,6 +218,19 @@ void craft_arp_reply_packet(
 	const char* dest_ip
 );
 
+void craft_eth_header(
+	uint8_t* packet,
+	macaddr src_mac,
+	macaddr dest_mac,
+	int protocol
+);
+
+void craft_ip_header(
+	uint8_t* packet,
+	const char* src_ip,
+	const char* dest_ip
+);
+
 EthHeader*	get_eth_header(uint8_t* packet);
 IpHeader*	get_ip_header(uint8_t* packet);
 TcpHeader*	get_tcp_header(uint8_t* packet);
