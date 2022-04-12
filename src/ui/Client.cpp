@@ -13,6 +13,7 @@
 static std::vector<PacketNode> s_intercepted_packets;
 static std::mutex s_packet_interception_mutex;
 static std::mutex s_filter_options_mutex;
+static std::mutex s_port_scanning_mutex;
 
 void ClientApplication::init()
 {
@@ -673,8 +674,7 @@ void ClientApplication::render_port_scanning_attack_data()
 					m_portscan_data.target_mac_address,
 					m_portscan_data.target_ip,
 					m_portscan_data.scanned_nodes,
-					8079,
-					8081
+					port_scanner::get_top_tcp_ports()
 				);
 			}
 		}
@@ -973,13 +973,13 @@ void ClientApplication::render_portscan_results_window()
 	ImGui::Text("%s", "Port"); ImGui::SameLine();
 
 	ImGui::SetCursorPosX(108);
-	ImGui::Text("%s", "Protocol Tried"); ImGui::SameLine();
-
-	ImGui::SetCursorPosX(268);
 	ImGui::Text("%s", "State"); ImGui::SameLine();
 
+	ImGui::SetCursorPosX(268);
+	ImGui::Text("%s", "Service Name"); ImGui::SameLine();
+
 	ImGui::SetCursorPosX(408);
-	ImGui::Text("%s", "Service Name /  Description");
+	ImGui::Text("%s", "Service Description");
 
 	// Render the actual port list
 	ImGui::Separator();
@@ -997,10 +997,44 @@ void ClientApplication::render_portscan_results_window()
 	}
 	else
 	{
+		s_port_scanning_mutex.lock();
 		for (auto& node : m_portscan_data.scanned_nodes)
 		{
-			ImGui::Text("Port %i status: %s", (int)node.port, (node.is_opened ? "true" : "false"));
+			// Port number
+			ImGui::SetCursorPosX(13);
+			ImGui::Text("%i/%s", (int)node.port, node.protocol.c_str()); ImGui::SameLine();
+
+			// Port state: opened or closed
+			ImGui::SetCursorPosX(103);
+			if (node.is_opened)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 1.0f, 0.3f, 1.0f));
+				ImGui::Text("%s", "opened");
+			}
+			else
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.5f, 0.2f, 1.0f));
+				ImGui::Text("%s", "closed");
+			}
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+
+			auto& [service_name, service_description] = node.service_name_and_description;
+
+			// Known port service name
+			ImGui::SetCursorPosX(263);
+			ImGui::Text("%s", service_name.c_str()); ImGui::SameLine();
+
+			// Known port service description
+			ImGui::SetCursorPosX(403);
+			ImGui::Text("%s", service_description.c_str());
+
+			// Autoscroll only if the attack is going on
+			// and new ports are getting added to the list.
+			if (m_portscan_data.attack_in_progress)
+				ImGui::SetScrollHereY(1.0f);
 		}
+		s_port_scanning_mutex.unlock();
 	}
 
 	ImGui::EndChild();

@@ -55,14 +55,20 @@ public:
 
 struct PortScanNode
 {
-	uint16_t	port = 0;
-	std::string protocol = "TCP";
-	bool		is_opened = false;
+	uint16_t	port;
+	bool		is_opened;
+	std::string protocol;
+	std::pair<std::string, std::string> service_name_and_description;
 };
 
 class port_scanner
 {
 public:
+	// Maps that contains [service_name, service_description] for top known TCP and UDP ports
+	static const std::map<uint16_t, std::pair<const char*, const char*>>& get_top_tcp_ports();
+	static const std::map<uint16_t, std::pair<const char*, const char*>>& get_top_udp_ports();
+
+	// Scan a specified list of ports
 	static void scan_target(
 		bool& attack_in_progress,
 		macaddr local_mac,
@@ -70,17 +76,6 @@ public:
 		macaddr target_mac,
 		const std::string& target_ip,
 		std::vector<PortScanNode>& scanned_nodes,
-		uint16_t start_port = 0,
-		uint16_t end_port = 65535
-	);
-
-private:
-	static void scan_port(
-		macaddr local_mac,
-		const std::string& local_ip,
-		macaddr target_mac,
-		const std::string& target_ip,
-		std::vector<PortScanNode>& scanned_nodes,
-		uint16_t target_port
+		const std::map<uint16_t, std::pair<const char*, const char*>>& target_port_list
 	);
 };
