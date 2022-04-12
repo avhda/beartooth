@@ -5,6 +5,35 @@ constexpr unsigned char BROADCAST_ADDR[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff 
 
 #define TLS_HANDSHAKE_HELLO_CLIENT_KNOWN_FIELDS_SIZE 39
 
+static uint16_t calculate_tcp_checksum(uint16_t* buffer, int size) {
+	unsigned long cksum = 0;
+	while (size > 1)
+	{
+		cksum += *buffer++;
+		size -= sizeof(uint16_t);
+	}
+	if (size)
+		cksum += *(unsigned char*)buffer;
+
+	cksum = (cksum >> 16) + (cksum & 0xffff);
+	cksum += (cksum >> 16);
+	return (uint16_t)(~cksum);
+}
+
+static uint8_t set_lower_nibble(uint8_t orig, uint8_t nibble) {
+	uint8_t res = orig;
+	res &= 0xF0; // Clear out the lower nibble
+	res |= (nibble & 0x0F); // OR in the desired mask
+	return res;
+}
+
+static uint8_t set_upper_nibble(uint8_t orig, uint8_t nibble) {
+	uint8_t res = orig;
+	res &= 0x0F; // Clear out the upper nibble
+	res |= ((nibble << 4) & 0xF0); // OR in the desired mask
+	return res;
+}
+
 void craft_arp_request_packet(ArpPacket* packet, macaddr source_mac, uint32_t source_ip, uint32_t target_ip)
 {
 	// Ethernet Layer
@@ -55,20 +84,63 @@ void craft_arp_reply_packet(ArpPacket* packet, macaddr source_mac, macaddr dest_
 	craft_arp_reply_packet(packet, source_mac, dest_mac, src_ip, dst_ip);
 }
 
-void craft_eth_header(uint8_t* packet, macaddr src_mac, macaddr dest_mac, int protocol)
+void craft_eth_header(uint8_t* packet, macaddr src_mac, macaddr dest_mac, uint16_t protocol)
 {
 	EthHeader* eth_header = get_eth_header(packet);
 
-	// Ethernet Layer
 	memcpy(eth_header->src, src_mac, MACADDR_LEN);
 	memcpy(eth_header->dest, dest_mac, MACADDR_LEN);
-	eth_header->protocol = htons(static_cast<uint16_t>(protocol));
+	eth_header->protocol = htons(protocol);
 }
 
-void craft_ip_header(uint8_t* packet, const char* src_ip, const char* dest_ip)
+void craft_ip_header_for_portscan(uint8_t* packet, const char* src_ip, const char* dest_ip, uint8_t protocol)
 {
+	uint32_t source_ip_addr = inet_addr(src_ip);
+	uint32_t target_ip_addr = inet_addr(dest_ip);
+
+	IpHeader* ip_header		= get_ip_header(packet);
+
+	constexpr uint16_t ip_total_length = sizeof(IpHeader) + sizeof(TcpHeader) - sizeof(TcpHeader::options); // no options included in the tcp header
+
+	ip_header->ip_verlen	= 0x45;				// version = ipv4, length = 20 bytes | 0100 0101
+	ip_header->tos			= 0x00;
+	ip_header->totallength	= ntohs(ip_total_length);
+	ip_header->id			= 0x7e00;
+	ip_header->flags		= 0x00;
+	ip_header->ttl			= 54;
+	ip_header->protocol		= protocol;
+	ip_header->checksum		= 0;
+	ip_header->srcaddr		= source_ip_addr;
+	ip_header->destaddr		= target_ip_addr;
+
+	auto calculated_checksum	= calculate_tcp_checksum((uint16_t*)ip_header, sizeof(IpHeader));
+	ip_header->checksum			= calculated_checksum;
 }
 
+void craft_tcp_header_for_portscan(uint8_t* packet, uint16_t src_port, uint16_t dest_port, uint8_t flags, uint32_t seq_number, uint32_t ack_number)
+{
+	IpHeader*	ip_header	= get_ip_header(packet);
+	TcpHeader*	tcp_header	= get_tcp_header(packet);
+
+	tcp_header->src_port		= htons(src_port);
+	tcp_header->dest_port		= htons(dest_port);
+	tcp_header->sequence_number	= seq_number ? seq_number : 0x18649465;
+	tcp_header->ack_number		= ack_number;
+	tcp_header->header_len		= set_upper_nibble(0, 5); // 5 * 4 = 20 bytes = sizeof(TcpHeader) - sizeof(TcpHeader.options) = 32 bytes - 12 bytes
+	tcp_header->flags			= flags;
+	tcp_header->window			= htons(65535);
+	tcp_header->checksum		= 0;
+	tcp_header->urgent_pointer	= 0;
+
+	PseudoTcpIpHeader	pseudo_hdr;
+	pseudo_hdr.ip_src	= ip_header->srcaddr;
+	pseudo_hdr.ip_dst	= ip_header->destaddr;
+	pseudo_hdr.tcp_len	= htons(ntohs(ip_header->totallength) - ((ip_header->ip_verlen & 0x0F) * 4));
+	pseudo_hdr.tcph		= *tcp_header;
+
+	auto calculated_checksum	= calculate_tcp_checksum((uint16_t*)&pseudo_hdr, sizeof(PseudoTcpIpHeader));
+	tcp_header->checksum		= calculated_checksum;
+}
 
 EthHeader* get_eth_header(uint8_t* packet)
 {

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <filesystem>
+#include <thread>
 #include <pcap.h>
 #include <iphlpapi.h>
 #pragma comment(lib, "WS2_32")
@@ -147,12 +148,15 @@ int net_utils::send_packet(void* packet, size_t size)
 
 int net_utils::recv_packet(PacketHeader* header, void* packet, size_t size)
 {
-	struct pcap_pkthdr* pkthdr;
-	const uint8_t* pkt_data;
+	struct pcap_pkthdr* pkthdr = 0;
+	const uint8_t* pkt_data = 0;
 
 	// Intersepting the packet
 	int result = pcap_next_ex(s_pcap_handle, &pkthdr, &pkt_data);
 	if (!result)
+		return 0;
+
+	if (!pkthdr || !pkt_data)
 		return 0;
 
 	int bytes_received = pkthdr->len;
@@ -376,9 +380,113 @@ void network_scanner::scan_network(macaddr source_mac, const std::string& source
 	}
 }
 
-void port_scanner::scan_target(const std::string& target_ip, std::vector<PortScanNode>& scanned_nodes, uint16_t start_port, uint16_t end_port)
+void port_scanner::scan_target(
+	bool& attack_in_progress,
+	macaddr local_mac,
+	const std::string& local_ip,
+	macaddr target_mac,
+	const std::string& target_ip,
+	std::vector<PortScanNode>& scanned_nodes,
+	uint16_t start_port,
+	uint16_t end_port
+)
 {
-	const uint32_t target_ip_addr = inet_addr(target_ip.c_str());
+	attack_in_progress = true;
 
+	/*std::thread scanning_thread([&]() {
+		for (uint16_t i = start_port; i <= end_port; ++i)
+			scan_port(local_mac, local_ip, target_mac, target_ip, scanned_nodes, i);
 
+		attack_in_progress = false;
+	});
+	scanning_thread.detach();*/
+
+	for (uint16_t i = start_port; i <= end_port; ++i)
+		scan_port(local_mac, local_ip, target_mac, target_ip, scanned_nodes, i);
+
+	attack_in_progress = false;
+}
+
+void port_scanner::scan_port(
+	macaddr local_mac,
+	const std::string& local_ip,
+	macaddr target_mac,
+	const std::string& target_ip,
+	std::vector<PortScanNode>& scanned_nodes,
+	uint16_t target_port
+)
+{
+	uint16_t source_port = 40277;
+	uint32_t local_ip_address = inet_addr(local_ip.c_str());
+
+	// Crafting the TCP packet to send
+	// to check if the tcp port is opened.
+	std::shared_ptr<GenericPacket> syn_packet = std::make_shared<GenericPacket>();
+
+	// Craft the ethernet frame
+	craft_eth_header(syn_packet->buffer, local_mac, target_mac, PROTOCOL_IPV4);
+
+	// Craft the IPv4 frame
+	craft_ip_header_for_portscan(syn_packet->buffer, local_ip.c_str(), target_ip.c_str(), PROTOCOL_TCP);
+
+	// Craft the TCP frame
+	craft_tcp_header_for_portscan(syn_packet->buffer, source_port, target_port, TCP_FLAGS_SYN);
+
+	net_utils::send_packet(syn_packet->buffer, sizeof(EthHeader) + sizeof(IpHeader) + sizeof(TcpHeader));
+
+	size_t packets_captured = 0;
+	while (packets_captured < 20)
+	{
+		auto packet = std::make_shared<GenericPacket>();
+		PacketHeader header;
+
+		net_utils::recv_packet(&header, packet->buffer, MAX_PACKET_SIZE);
+		++packets_captured;
+
+		if (!has_ip_layer(packet->buffer))
+			continue;
+
+		if (!has_tcp_layer(packet->buffer))
+			continue;
+
+		IpHeader* ip_header = get_ip_header(packet->buffer);
+		TcpHeader* tcp_header = get_tcp_header(packet->buffer);
+
+		if (ip_header->destaddr != local_ip_address)
+			continue;
+
+		if (ntohs(tcp_header->src_port) != target_port)
+			continue;
+
+		if ((int)tcp_header->flag_bits.SYN && (int)tcp_header->flag_bits.ACK)
+		{
+			// Port is opened :)
+			PortScanNode node;
+			node.is_opened = true;
+			node.port = target_port;
+			node.protocol = "TCP";
+
+			scanned_nodes.push_back(node);
+			return;
+		}
+		else if ((int)tcp_header->flag_bits.RST && (int)tcp_header->flag_bits.ACK)
+		{
+			// Port is closed :(
+			PortScanNode node;
+			node.is_opened = false;
+			node.port = target_port;
+			node.protocol = "TCP";
+
+			scanned_nodes.push_back(node);
+			return;
+		}
+	}
+
+	// In case the response wasn't received, that means port is closed
+	PortScanNode node;
+	node.is_opened = false;
+	node.port = target_port;
+	node.protocol = "TCP";
+
+	scanned_nodes.push_back(node);
 }

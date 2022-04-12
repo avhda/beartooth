@@ -76,6 +76,15 @@ PACK(struct IpHeader
 	uint32_t	destaddr;      // Source address
 });
 
+#define TCP_FLAGS_FIN       1 << 0
+#define TCP_FLAGS_SYN       1 << 1
+#define TCP_FLAGS_RST       1 << 2
+#define TCP_FLAGS_PSH       1 << 3
+#define TCP_FLAGS_ACK       1 << 4
+#define TCP_FLAGS_URGENT    1 << 5
+#define TCP_FLAGS_ECN       1 << 6
+#define TCP_FLAGS_CWR       1 << 7
+
 #define TCP_FLAGS_PSH_ACK	0x18
 
 PACK(struct TcpHeader
@@ -84,12 +93,35 @@ PACK(struct TcpHeader
 	uint16_t	dest_port;
 	uint32_t	sequence_number;
 	uint32_t	ack_number;
-	uint8_t		header_len;
-	uint8_t		flags;
+	uint8_t		header_len;		// upper 4 bits times 4 is the length
+	union
+	{
+		uint8_t		flags;
+		struct {
+			uint8_t		FIN			: 1;
+			uint8_t		SYN			: 1;
+			uint8_t		RST			: 1;
+			uint8_t		PSH			: 1;
+			uint8_t		ACK			: 1;
+			uint8_t		URGENT		: 1;
+			uint8_t		ECN			: 1;
+			uint8_t		CWR			: 1;
+		} flag_bits;
+	};
 	uint16_t	window;
 	uint16_t	checksum;
 	uint16_t	urgent_pointer;
 	uint8_t		options[12];
+});
+
+PACK(struct PseudoTcpIpHeader
+{
+	uint32_t	ip_src;
+	uint32_t	ip_dst;
+	uint8_t		zero = 0;
+	uint8_t		protocol = PROTOCOL_TCP;
+	uint16_t	tcp_len;
+	TcpHeader	tcph;
 });
 
 PACK(struct UdpHeader
@@ -222,13 +254,23 @@ void craft_eth_header(
 	uint8_t* packet,
 	macaddr src_mac,
 	macaddr dest_mac,
-	int protocol
+	uint16_t protocol
 );
 
-void craft_ip_header(
+void craft_ip_header_for_portscan(
 	uint8_t* packet,
 	const char* src_ip,
-	const char* dest_ip
+	const char* dest_ip,
+	uint8_t protocol
+);
+
+void craft_tcp_header_for_portscan(
+	uint8_t* packet,
+	uint16_t src_port,
+	uint16_t dest_port,
+	uint8_t	flags,
+	uint32_t seq_number = 0,
+	uint32_t ack_number = 0
 );
 
 EthHeader*	get_eth_header(uint8_t* packet);

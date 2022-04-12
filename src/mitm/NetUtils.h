@@ -63,5 +63,24 @@ struct PortScanNode
 class port_scanner
 {
 public:
-	static void scan_target(const std::string& target_ip, std::vector<PortScanNode>& scanned_nodes, uint16_t start_port = 0, uint16_t end_port = 65535);
+	static void scan_target(
+		bool& attack_in_progress,
+		macaddr local_mac,
+		const std::string& local_ip,
+		macaddr target_mac,
+		const std::string& target_ip,
+		std::vector<PortScanNode>& scanned_nodes,
+		uint16_t start_port = 0,
+		uint16_t end_port = 65535
+	);
+
+private:
+	static void scan_port(
+		macaddr local_mac,
+		const std::string& local_ip,
+		macaddr target_mac,
+		const std::string& target_ip,
+		std::vector<PortScanNode>& scanned_nodes,
+		uint16_t target_port
+	);
 };

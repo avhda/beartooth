@@ -10,6 +10,7 @@ class ClientApplication
 public:
 	void init();
 	void render();
+	void shutdown();
 
 private:
 	void set_dark_theme_colors();
@@ -75,8 +76,12 @@ private:
 
 	struct PORTSCAN_data
 	{
+		macaddr						local_mac_address;
+		std::string					local_ip;
+
 		macaddr						target_mac_address;
 		std::string					target_ip;
+
 		bool						attack_in_progress = false;
 		std::vector<PortScanNode>	scanned_nodes;
 	};

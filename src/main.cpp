@@ -5,6 +5,7 @@
 #include <d3d11.h>
 #include <tchar.h>
 #include <memory>
+#include <thread>
 #include "ui/Client.h"
 
 // Data
@@ -143,7 +144,10 @@ int main(int, char**)
     }
 
     // Cleanup
+    client->shutdown();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     net_utils::close_handles();
+
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

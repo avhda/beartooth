@@ -129,6 +129,12 @@ void ClientApplication::render()
 	render_independent_inspection_windows();
 }
 
+void ClientApplication::shutdown()
+{
+	m_mitm_data.attack_in_progress = false;
+	m_portscan_data.attack_in_progress = false;
+}
+
 void ClientApplication::set_dark_theme_colors()
 {
 	auto& colors = ImGui::GetStyle().Colors;
@@ -371,9 +377,11 @@ void ClientApplication::render_adapters_list()
 
 				// Retrieve the local MAC address
 				net_utils::retrieve_local_mac_address(m_mitm_data.local_mac_address);
+				net_utils::retrieve_local_mac_address(m_portscan_data.local_mac_address);
 
 				// Set the IPv4 field in MITM data structure
 				m_mitm_data.local_ip = adapter.address.to_string();
+				m_portscan_data.local_ip = adapter.address.to_string();
 			}
 
 			ImGui::TreePop();
@@ -656,10 +664,18 @@ void ClientApplication::render_port_scanning_attack_data()
 		{
 			if (ImGui::Button("Start Scanning", ImVec2(110, 25)))
 			{
-				m_portscan_data.attack_in_progress = true;
+				m_portscan_data.scanned_nodes.clear();
 
-				// ====== TESTING PORT SCANNING FUNCTIONALITY ====== //
-				MessageBoxA(0, 0, 0, 0);
+				port_scanner::scan_target(
+					m_portscan_data.attack_in_progress,
+					m_portscan_data.local_mac_address,
+					m_portscan_data.local_ip,
+					m_portscan_data.target_mac_address,
+					m_portscan_data.target_ip,
+					m_portscan_data.scanned_nodes,
+					8079,
+					8081
+				);
 			}
 		}
 		else
@@ -981,7 +997,10 @@ void ClientApplication::render_portscan_results_window()
 	}
 	else
 	{
-
+		for (auto& node : m_portscan_data.scanned_nodes)
+		{
+			ImGui::Text("Port %i status: %s", (int)node.port, (node.is_opened ? "true" : "false"));
+		}
 	}
 
 	ImGui::EndChild();
