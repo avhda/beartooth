@@ -28,7 +28,7 @@ private:
 	void render_mitm_target_selection_window();
 	void render_portscan_target_selection_window();
 	void render_mitm_gateway_selection_window();
-	void render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer);
+	bool render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer);
 
 	void render_intercepted_traffic_window();
 	void render_portscan_results_window();
@@ -82,8 +82,9 @@ private:
 		macaddr						target_mac_address;
 		std::string					target_ip;
 
-		bool						attack_in_progress = false;
 		std::vector<PortScanNode>	scanned_nodes;
+		bool						attack_in_progress = false;
+		bool						show_only_open_ports = true;
 	};
 
 	PORTSCAN_data m_portscan_data;

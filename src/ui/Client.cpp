@@ -652,6 +652,11 @@ void ClientApplication::render_port_scanning_attack_data()
 		ImGui::TreePop();
 		ImGui::Spacing();
 		ImGui::Unindent(indent_w);
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+
+		ImGui::BeartoothCustomCheckbox("Show only open ports", &m_portscan_data.show_only_open_ports);
 	}
 
 	if (!m_portscan_data.target_ip.empty())
@@ -698,7 +703,12 @@ void ClientApplication::render_mitm_target_selection_window()
 
 void ClientApplication::render_portscan_target_selection_window()
 {
-	render_generic_host_selection_window(m_select_portscan_target_window_id, m_portscan_data.target_ip, m_portscan_data.target_mac_address);
+	if (render_generic_host_selection_window(m_select_portscan_target_window_id, m_portscan_data.target_ip, m_portscan_data.target_mac_address))
+	{
+		// If a new target has been selected,
+		// clear out the previously scanned nodes.
+		m_portscan_data.scanned_nodes.clear();
+	}
 }
 
 void ClientApplication::render_mitm_gateway_selection_window()
@@ -706,11 +716,13 @@ void ClientApplication::render_mitm_gateway_selection_window()
 	render_generic_host_selection_window(m_select_mitm_gateway_window_id, m_mitm_data.gateway_ip, m_mitm_data.gateway_mac_address);
 }
 
-void ClientApplication::render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer)
+bool ClientApplication::render_generic_host_selection_window(const char* popup_target_id, std::string& ip_buffer, macaddr mac_buffer)
 {
 	const float IPV4_CURSOR_POS_X		= 8.0f;
 	const float MAC_CURSOR_POS_X		= 190.0f;
 	const float VENDOR_CURSOR_POS_X		= 400.0f;
+
+	bool host_selected = false;
 
 	ImGui::SetNextWindowSizeConstraints(ImVec2(500, 500), ImVec2(700, 500));
 	if (ImGui::BeginPopupModal(popup_target_id, &m_is_host_selection_window_opened, ImGuiWindowFlags_AlwaysAutoResize))
@@ -767,6 +779,7 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 			{
 				ip_buffer = ip;
 				memcpy(mac_buffer, node.physical_address, sizeof(macaddr));
+				host_selected = true;
 			}
 
 			ImGui::SameLine();
@@ -793,6 +806,8 @@ void ClientApplication::render_generic_host_selection_window(const char* popup_t
 
 		ImGui::EndPopup();
 	}
+
+	return host_selected;
 }
 
 void ClientApplication::render_intercepted_traffic_window()
@@ -981,6 +996,13 @@ void ClientApplication::render_portscan_results_window()
 	ImGui::SetCursorPosX(408);
 	ImGui::Text("%s", "Service Description");
 
+	if (m_portscan_data.attack_in_progress)
+	{
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 144);
+		ImGui::Text("Ports responded: %zi", m_portscan_data.scanned_nodes.size());
+	}
+
 	// Render the actual port list
 	ImGui::Separator();
 	ImGui::Spacing();
@@ -988,18 +1010,21 @@ void ClientApplication::render_portscan_results_window()
 
 	ImGui::BeginChild("PortRegion");
 
-	if (!m_portscan_data.scanned_nodes.size())
+	if (!m_portscan_data.attack_in_progress && !m_portscan_data.scanned_nodes.size())
 	{
 		auto middle_x = ImGui::GetWindowSize().x / 2.0f - 60.0f;
 		auto middle_y = ImGui::GetWindowSize().y / 2.0f - 8.0f;
 		ImGui::SetCursorPos(ImVec2(middle_x, middle_y));
-		ImGui::Text("Ports Scanned: 0");
+		ImGui::Text("No Attack Detected");
 	}
 	else
 	{
 		s_port_scanning_mutex.lock();
 		for (auto& node : m_portscan_data.scanned_nodes)
 		{
+			if (m_portscan_data.show_only_open_ports && !node.is_opened)
+				continue;
+
 			// Port number
 			ImGui::SetCursorPosX(13);
 			ImGui::Text("%i/%s", (int)node.port, node.protocol.c_str()); ImGui::SameLine();

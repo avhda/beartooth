@@ -14,6 +14,7 @@ static pcap_t*					s_pcap_handle				= nullptr;
 static pcap_dumper_t*			s_pcap_dumper_handle		= nullptr;
 static char						s_errbuf[PCAP_ERRBUF_SIZE];
 static std::string				s_dump_filepath				= "";
+static std::mutex				s_port_scanning_mutex;
 
 // Response wait time in milliseconds
 #define PORT_SCAN_RESPONSE_WAIT_TIMEOUT 8192
@@ -2532,6 +2533,7 @@ void port_scanner::scan_target(
 			scanned_nodes.push_back(scan_node);
 		}
 
+		// Turn the attack flag off to indicate its completion
 		attack_in_progress = false;
 	});
 
